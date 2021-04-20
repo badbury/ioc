@@ -129,9 +129,9 @@ export abstract class Listener<T> {
 export class EventListenerBuilder<T extends new (...args: any[]) => InstanceType<T>> {
   constructor(public key: T) {}
 
-  run(target: (subject: InstanceType<T>) => void): Listener<T>;
-  run<C extends Constructor, M extends MethodOf<C, T>>(target: C, method: M): Listener<T>;
-  run<C extends Constructor, M extends MethodOf<C, T>>(
+  do(target: (subject: InstanceType<T>) => void): Listener<T>;
+  do<C extends Constructor, M extends MethodOf<C, T>>(target: C, method: M): Listener<T>;
+  do<C extends Constructor, M extends MethodOf<C, T>>(
     target: C | ((subject: InstanceType<T>) => void),
     method?: M,
   ): Listener<T> {
@@ -223,8 +223,8 @@ export class MyModule {
         from(MyConfig).use((config) => config.url),
       ),
       bind(Box),
-      on(Baz).run(Box, 'process'),
-      on(Baz).run((b) => console.log('Arrow function processing...', b)),
+      on(Baz).do(Box, 'process'),
+      on(Baz).do((b) => console.log('Arrow function processing...', b)),
     ];
   }
 }
