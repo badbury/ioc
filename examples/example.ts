@@ -1,5 +1,5 @@
 import { Container, Definition } from '../src/Container';
-import { bind, lookup, on } from '../src/facade';
+import { bind, lookup, on, value } from '../src/facade';
 
 class MyConfig {
   url = 'https://example.org';
@@ -11,7 +11,7 @@ class Bar {
 }
 
 class Foo {
-  constructor(public bar: Bar, private url: string) {}
+  constructor(public bar: Bar, private url: string, private id: number) {}
   getBar(): Bar {
     return this.bar;
   }
@@ -38,11 +38,17 @@ export class MyModule {
       bind(Foo).with(
         Bar,
         lookup(MyConfig).map((config) => config.url),
+        value(99),
       ),
+      bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(99)),
       bind(Box),
       on(Baz).do(Box, 'process'),
       on(Baz).do((b) => console.log('Arrow function processing...', b)),
     ];
+  }
+
+  getUrl(config: MyConfig): string {
+    return config.url;
   }
 }
 

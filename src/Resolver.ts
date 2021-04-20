@@ -17,12 +17,16 @@ type TypeParams<T extends new (...args: any[]) => any> = T extends new (...args:
 
 export class BindResolver<
     T extends new (...args: any[]) => InstanceType<T>,
+    K = T,
     P extends TypeParams<T> = TypeParams<T>
   >
-  extends Resolver<T, T>
+  extends Resolver<T, K>
   implements PartialResolver<T, P> {
-  private args: P | [] = [];
   protected instance?: InstanceType<T>;
+
+  constructor(public key: K, public type: T, private args: P | [] = []) {
+    super(key);
+  }
 
   resolve(container: Container): T {
     if (this.instance) {
@@ -30,14 +34,17 @@ export class BindResolver<
     }
     const args = [];
     for (const arg of this.args) {
-      args.push((arg as any).resolve ? (arg as any).resolve(container) : container.get(arg as any));
+      args.push(arg instanceof Resolver ? arg.resolve(container) : container.get(arg));
     }
-    return (this.instance = new this.key(...args));
+    return (this.instance = new this.type(...args));
   }
 
   with(...args: P): Resolver<T> {
-    this.args = args;
-    return this;
+    return new BindResolver(this.key, this.type, args);
+  }
+
+  to<N>(key: N): Resolver<T, N> {
+    return new BindResolver(key, this.type, this.args);
   }
 }
 
@@ -72,5 +79,15 @@ export class LookupResolver<T extends new (...args: any[]) => InstanceType<T>> e
 
   map<N>(transform: (t: InstanceType<T>) => N): Resolver<N> {
     return new TransformResolver(this.key, this, transform);
+  }
+}
+
+export class ValueResolver<T, K> extends Resolver<T, K> {
+  constructor(public key: K, private value: T) {
+    super(key);
+  }
+
+  resolve(): T {
+    return this.value;
   }
 }

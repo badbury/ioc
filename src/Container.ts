@@ -24,7 +24,7 @@ export class Container {
 
   constructor(modules: Module[]) {
     modules.forEach((module) =>
-      module.register().forEach((definition) => {
+      module.register().forEach((definition: Definition) => {
         if (definition instanceof Resolver) {
           this.mappings.set(definition.key, definition);
         } else {
