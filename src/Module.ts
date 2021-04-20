@@ -98,7 +98,8 @@ export class FromResolver<
   }
 }
 
-// type TakeArg<V, T> = V[] extends new (...args: any[]) => any ? keyof InstanceType<V> : never;
+type FirstArgument<T> = T extends (arg1: infer U, ...args: any[]) => any ? U : any;
+type AssertEquals<T1, T2, T3> = T1 extends T2 ? T3 : never;
 
 type MethodOf<T> = T extends new (...args: any[]) => any ? keyof InstanceType<T> : never;
 
@@ -120,11 +121,16 @@ export class EventResolver<
   }
 
   run(target: (subject: InstanceType<T>) => void): Resolver<T>;
-  run<V, K extends MethodOf<V>>(target: V, method: K): Resolver<T>;
-  run<V, K extends MethodOf<V>>(
-    target: V | ((subject: InstanceType<T>) => void),
-    method?: K,
-  ): Resolver<T> {
+  run<
+    V extends new (...args: any) => any,
+    K extends keyof InstanceType<V>,
+    M extends AssertEquals<FirstArgument<InstanceType<V>[K]>, FirstArgument<T>, K>
+  >(target: V, method: M): Resolver<T>;
+  run<
+    V extends new (...args: any) => any,
+    K extends keyof InstanceType<V>,
+    M extends AssertEquals<FirstArgument<InstanceType<V>[K]>, FirstArgument<T>, K>
+  >(target: V | ((subject: InstanceType<T>) => void), method?: M): Resolver<T> {
     // this.subject = method ? () => (new target() as InstanceType<V>)[method].bind(target) : target;
     return this;
   }
