@@ -98,11 +98,46 @@ export class FromResolver<
   }
 }
 
+// type TakeArg<V, T> = V[] extends new (...args: any[]) => any ? keyof InstanceType<V> : never;
+
+type MethodOf<T> = T extends new (...args: any[]) => any ? keyof InstanceType<T> : never;
+
+export class EventResolver<
+  T extends new (...args: any[]) => InstanceType<T>,
+  P extends TypeParams<T> = TypeParams<T>
+> {
+  private args: P | [] = [];
+  protected subject?: InstanceType<T>;
+
+  constructor(public key: T) {}
+
+  resolve(container: Container): T {
+    const args = [];
+    for (const arg of this.args) {
+      args.push((arg as any).resolve ? (arg as any).resolve(container) : container.get(arg as any));
+    }
+    return (this.instance = new this.key(...args));
+  }
+
+  run(target: (subject: InstanceType<T>) => void): Resolver<T>;
+  run<V, K extends MethodOf<V>>(target: V, method: K): Resolver<T>;
+  run<V, K extends MethodOf<V>>(
+    target: V | ((subject: InstanceType<T>) => void),
+    method?: K,
+  ): Resolver<T> {
+    // this.subject = method ? () => (new target() as InstanceType<V>)[method].bind(target) : target;
+    return this;
+  }
+}
+
 function bind<T extends new (...args: any[]) => InstanceType<T>>(type: T) {
   return new BindResolver(type);
 }
 function from<T extends new (...args: any[]) => InstanceType<T>>(type: T) {
   return new FromResolver(type);
+}
+function on<T extends new (...args: any[]) => InstanceType<T>>(type: T) {
+  return new EventResolver(type);
 }
 
 export interface Module {
@@ -132,6 +167,7 @@ export class MyModule {
         from(MyConfig).use((config) => config.url),
       ),
       on(Baz).run(Box, 'process'),
+      on(Baz).run((b) => console.log(b)),
     ];
   }
 }
