@@ -1,5 +1,3 @@
-import { ValueResolver } from './resolvers';
-
 export abstract class Resolver<T, K = any> {
   constructor(public key: K) {}
   abstract resolve(container: Container): T;
@@ -29,7 +27,15 @@ export class Container {
   private listeners: Map<any, Listener<any>[]> = new Map();
 
   constructor(modules: Module[]) {
-    const containerResolver = new ValueResolver(Container, this);
+    const containerResolver = new (class extends Resolver<Container> {
+      constructor(private value: Container) {
+        super(null);
+      }
+
+      resolve(): Container {
+        return this.value;
+      }
+    })(this);
     this.mappings.set(Container, containerResolver);
     this.mappings.set(ServiceLocator, containerResolver);
     this.mappings.set(EventSink, containerResolver);

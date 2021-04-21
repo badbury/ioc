@@ -1,4 +1,4 @@
-import { Container, Definition, bind, lookup, on, value } from '../src';
+import { Container, Definition, bind, lookup, on, value, EventSink } from '../src';
 
 // @TODO:
 // - Implement recursive loop checks
@@ -36,6 +36,13 @@ class Box {
   }
 }
 
+class Trigger {
+  constructor(private event: EventSink) {}
+  trigger(foo: Foo) {
+    this.event.emit(foo.getBar());
+  }
+}
+
 export class MyModule {
   register(): Definition[] {
     return [
@@ -51,10 +58,13 @@ export class MyModule {
         .to(Foo99),
       bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(1)),
       bind(Box),
+      bind(Trigger).with(EventSink),
+      on(Foo).do(Trigger, 'trigger'),
+      on(Bar).do((bar) => console.log('Handling Bar...', bar)),
       on(Baz).do(Box, 'process'),
       on(Baz).do(MyModule, 'handleBaz'),
       on(Baz).do(this.handleBaz),
-      on(Baz).do((b) => console.log('Arrow function processing...', b)),
+      on(Baz).do((baz) => console.log('Arrow function processing...', baz)),
     ];
   }
 
@@ -71,9 +81,10 @@ const m = new MyModule();
 const c = new Container([m]);
 
 console.log(c.get(Bar));
-const f = c.get(Foo);
-console.log(f);
-console.log(f.getBar());
+const foo = c.get(Foo);
+const foo99 = c.get(Foo99);
+console.log(foo);
+console.log(foo99);
+console.log(foo.getBar());
 c.emit(new Baz('yas'));
-console.log(c.get(Foo));
-console.log(c.get(Foo99));
+c.emit(foo99);

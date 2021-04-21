@@ -8,7 +8,8 @@ export type PartialResolver<
 };
 
 type AsConstructors<T extends any[]> = {
-  [K in keyof T]: (new (...args: any[]) => T[K]) | Resolver<T[K]>;
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  [K in keyof T]: (Function & { prototype: T[K] }) | Resolver<T[K]>;
 };
 
 type TypeParams<T extends new (...args: any[]) => any> = T extends new (...args: infer P) => any
