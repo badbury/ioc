@@ -17,6 +17,10 @@ class Foo {
   }
 }
 
+abstract class SpecialisedFoo {
+  abstract getBar(): Bar;
+}
+
 class Baz {
   constructor(public name: string) {}
 }
@@ -41,8 +45,8 @@ export class MyModule {
           lookup(MyConfig).map((config) => config.url),
           value(100),
         )
-        .to('foo-100'),
-      bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(99)).to('foo-100'),
+        .to(SpecialisedFoo),
+      bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(99)),
       bind(Box),
       on(Baz).do(Box, 'process'),
       on(Baz).do((b) => console.log('Arrow function processing...', b)),
@@ -63,4 +67,4 @@ console.log(f);
 console.log(f.getBar());
 c.emit(new Baz('yas'));
 console.log(c.get(Foo));
-console.log(c.get<Foo>('foo-100' as any));
+console.log(c.get(SpecialisedFoo));

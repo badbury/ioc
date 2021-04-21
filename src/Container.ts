@@ -36,7 +36,7 @@ export class Container {
     );
   }
 
-  get<T>(type: new (...args: any[]) => T): T {
+  get<T extends { prototype: any }>(type: T): T['prototype'] {
     return this.mappings.get(type as any)?.resolve(this);
   }
 
