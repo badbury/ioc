@@ -15,7 +15,7 @@ export interface Module {
 }
 
 export abstract class ServiceLocator {
-  abstract get<T extends { prototype: any }>(type: T): T['prototype'];
+  abstract get<T, C extends { prototype: T }>(type: C): T;
 }
 
 export abstract class EventSink {
@@ -52,8 +52,8 @@ export class Container {
     );
   }
 
-  get<T extends { prototype: any }>(type: T): T['prototype'] {
-    return this.mappings.get(type as any)?.resolve(this);
+  get<T, C extends { prototype: T }>(type: C): T {
+    return this.mappings.get(type)?.resolve(this);
   }
 
   emit<T>(subject: T): void {
@@ -62,3 +62,4 @@ export class Container {
       ?.map((handler) => handler.handle(subject, this));
   }
 }
+s;
