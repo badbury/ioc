@@ -1,5 +1,9 @@
-import { Container, Definition } from '../src/container';
-import { bind, lookup, on, value } from '../src/facade';
+import { Container, Definition, bind, lookup, on, value } from '../src';
+
+// @TODO:
+// - Implement recursive loop checks
+// - Pass multiple resolvers to listeners on(Bar).with(Foo, Qux).do(Box, 'process')
+// - Detect incomplete bindings e.g. bind(Foo) should fail if Foo requires params
 
 class MyConfig {
   url = 'https://example.org';

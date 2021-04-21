@@ -1,6 +1,4 @@
-// @TODO:
-// - Implement recursive loop checks
-// - Pass multiple resolvers to on(Bar).with(Foo, Qux).do(Box, 'process')
+import { ValueResolver } from './resolvers';
 
 export abstract class Resolver<T, K = any> {
   constructor(public key: K) {}
@@ -18,11 +16,23 @@ export interface Module {
   register(): Definition[];
 }
 
+export abstract class ServiceLocator {
+  abstract get<T extends { prototype: any }>(type: T): T['prototype'];
+}
+
+export abstract class EventSink {
+  abstract emit<T>(subject: T): void;
+}
+
 export class Container {
   private mappings: Map<any, Resolver<any>> = new Map();
   private listeners: Map<any, Listener<any>[]> = new Map();
 
   constructor(modules: Module[]) {
+    const containerResolver = new ValueResolver(Container, this);
+    this.mappings.set(Container, containerResolver);
+    this.mappings.set(ServiceLocator, containerResolver);
+    this.mappings.set(EventSink, containerResolver);
     modules.forEach((module) =>
       module.register().forEach((definition: Definition) => {
         if (definition instanceof Resolver) {
