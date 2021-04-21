@@ -7,7 +7,7 @@ class MyConfig {
 
 class Bar {
   one = Math.random();
-  constructor() {}
+  constructor(public two: string) {}
 }
 
 class Foo {
@@ -17,9 +17,7 @@ class Foo {
   }
 }
 
-abstract class SpecialisedFoo {
-  abstract getBar(): Bar;
-}
+abstract class Foo99 extends Foo {}
 
 class Baz {
   constructor(public name: string) {}
@@ -39,22 +37,29 @@ export class MyModule {
     return [
       bind(MyConfig),
       bind(Bar),
+      bind(MyModule),
       bind(Foo)
         .with(
           Bar,
           lookup(MyConfig).map((config) => config.url),
-          value(100),
+          value(99),
         )
-        .to(SpecialisedFoo),
-      bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(99)),
+        .to(Foo99),
+      bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(1)),
       bind(Box),
       on(Baz).do(Box, 'process'),
+      on(Baz).do(MyModule, 'handleBaz'),
+      on(Baz).do(this.handleBaz),
       on(Baz).do((b) => console.log('Arrow function processing...', b)),
     ];
   }
 
   getUrl(config: MyConfig): string {
     return config.url;
+  }
+
+  handleBaz(baz: Baz): void {
+    console.log(baz);
   }
 }
 
@@ -67,4 +72,4 @@ console.log(f);
 console.log(f.getBar());
 c.emit(new Baz('yas'));
 console.log(c.get(Foo));
-console.log(c.get(SpecialisedFoo));
+console.log(c.get(Foo99));

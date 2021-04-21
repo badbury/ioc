@@ -1,6 +1,6 @@
 // @TODO:
 // - Implement recursive loop checks
-// -
+// - Pass multiple resolvers to on(Bar).with(Foo, Qux).do(Box, 'process')
 
 export abstract class Resolver<T, K = any> {
   constructor(public key: K) {}
