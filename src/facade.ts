@@ -1,5 +1,5 @@
-import { EventListenerBuilder } from './Listener';
-import { BindResolver, LookupResolver, ValueResolver } from './Resolver';
+import { EventListenerBuilder } from './listeners';
+import { BindResolver, LookupResolver, ValueResolver } from './resolvers';
 
 type Constructor<T = any, P extends any[] = any[]> = new (...args: P) => T;
 type ClassLike<T extends Constructor<T>> = Constructor<InstanceType<T>>;

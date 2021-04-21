@@ -1,4 +1,4 @@
-import { Container, Definition } from '../src/Container';
+import { Container, Definition } from '../src/container';
 import { bind, lookup, on, value } from '../src/facade';
 
 class MyConfig {
@@ -35,12 +35,14 @@ export class MyModule {
     return [
       bind(MyConfig),
       bind(Bar),
-      bind(Foo).with(
-        Bar,
-        lookup(MyConfig).map((config) => config.url),
-        value(99),
-      ),
-      bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(99)),
+      bind(Foo)
+        .with(
+          Bar,
+          lookup(MyConfig).map((config) => config.url),
+          value(100),
+        )
+        .to('foo-100'),
+      bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(99)).to('foo-100'),
       bind(Box),
       on(Baz).do(Box, 'process'),
       on(Baz).do((b) => console.log('Arrow function processing...', b)),
@@ -60,3 +62,5 @@ const f = c.get(Foo);
 console.log(f);
 console.log(f.getBar());
 c.emit(new Baz('yas'));
+console.log(c.get(Foo));
+console.log(c.get<Foo>('foo-100' as any));
