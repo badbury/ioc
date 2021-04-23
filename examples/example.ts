@@ -4,6 +4,18 @@ import { Container, Definition, bind, lookup, on, value, EventSink } from '../sr
 // - Implement recursive loop checks
 // - Pass multiple resolvers to listeners on(Bar).with(Foo, Qux).do(Box, 'process')
 // - Detect incomplete bindings e.g. bind(Foo) should fail if Foo requires params
+// - Implement the following features:
+//   - di bind(X).with(A, B).to(Y)
+//   - events on(Foo).do(X, 'foo')
+//   - http routing http(GetFoo).do(X, 'foo')
+//   - cli routing cli(ServeHttp).do(X, 'foo')
+//   - interceptors bind(X).intercept('foo', Y, Z)
+//   - decorators bind(X).decorate(Y, Z)
+//   - factories bind(X).factory(Foo, (foo) => foo.getX())
+//   - use extra args on(Foo).use(Y).do(X, 'foo')
+//   - Bind = di | On = events | Http = http | Cli = cli
+// - Consider how http and cli can work without ioc.
+// - Throw on missing definition
 
 class MyConfig {
   url = 'https://example.org';
