@@ -21,6 +21,9 @@ export class DependencyResolver implements ServiceLocator {
   }
 }
 
+type Constructor<T = any, P extends any[] = any[]> = new (...args: P) => T;
+type ClassLike<T extends Constructor<T>> = Constructor<InstanceType<T>>;
+
 export type PartialResolver<
   T extends new (...args: any[]) => InstanceType<T>,
   P extends TypeParams<T>
@@ -33,15 +36,11 @@ type AsConstructors<T extends any[]> = {
   [K in keyof T]: (Function & { prototype: T[K] }) | Resolver<T[K]>;
 };
 
-type TypeParams<T extends new (...args: any[]) => any> = T extends new (...args: infer P) => any
+type TypeParams<T extends ClassLike<T>> = T extends new (...args: infer P) => any
   ? AsConstructors<P>
   : never;
 
-export class BindResolver<
-    T extends new (...args: any[]) => InstanceType<T>,
-    K = T,
-    P extends TypeParams<T> = TypeParams<T>
-  >
+export class BindResolver<T extends ClassLike<T>, K = T, P extends TypeParams<T> = TypeParams<T>>
   extends Resolver<T, K>
   implements PartialResolver<T, P> {
   protected instance?: InstanceType<T>;
@@ -70,11 +69,7 @@ export class BindResolver<
   }
 }
 
-export class TransformResolver<
-  T extends new (...args: any[]) => InstanceType<T>,
-  N,
-  K
-> extends Resolver<N> {
+export class TransformResolver<T extends ClassLike<T>, N, K> extends Resolver<N> {
   private instance?: N;
 
   constructor(
@@ -94,7 +89,7 @@ export class TransformResolver<
   }
 }
 
-export class LookupResolver<T extends new (...args: any[]) => InstanceType<T>> extends Resolver<T> {
+export class LookupResolver<T extends ClassLike<T>> extends Resolver<T> {
   resolve(container: ServiceLocator): T {
     return container.get(this.key);
   }
@@ -113,9 +108,6 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
     return this.value;
   }
 }
-
-type Constructor<T = any, P extends any[] = any[]> = new (...args: P) => T;
-type ClassLike<T extends Constructor<T>> = Constructor<InstanceType<T>>;
 
 export function bind<T extends ClassLike<T>>(type: T): BindResolver<T> {
   return new BindResolver(type, type);
