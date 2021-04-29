@@ -73,11 +73,13 @@ export class MyModule {
       bind(Box),
       bind(Trigger).with(EventSink),
       on(Foo).do(Trigger, 'trigger'),
-      on(Bar).do((bar) => console.log('Handling Bar...', bar)),
+      on(Bar).do((bar) => console.log('Arrow Bar...', bar)),
       on(Baz).do(Box, 'process'),
-      on(Baz).do(MyModule, 'handleBaz'),
-      on(Baz).do(this.handleBaz),
-      on(Baz).do((baz) => console.log('Arrow function processing...', baz)),
+      on(Baz).use(Foo, Bar).do(MyModule, 'handleBaz'),
+      on(Baz).use(Foo99, Bar).do(this.handleBaz),
+      on(Baz)
+        .use(Foo99)
+        .do((baz, foo) => console.log('Arrow Baz...', baz, foo.getBar())),
     ];
   }
 
@@ -85,8 +87,8 @@ export class MyModule {
     return config.url;
   }
 
-  handleBaz(baz: Baz): void {
-    console.log(baz);
+  handleBaz(baz: Baz, foo: Foo, bar: Bar): void {
+    console.log('Use statement', baz, foo, bar);
   }
 }
 
