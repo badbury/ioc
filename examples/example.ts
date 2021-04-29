@@ -5,14 +5,14 @@ import { Container, bind, lookup, on, value, EventSink } from '../src';
 // - Pass multiple resolvers to listeners on(Bar).with(Foo, Qux).do(Box, 'process')
 // - Detect incomplete bindings e.g. bind(Foo) should fail if Foo requires params
 // - Implement the following features:
-//   - di bind(X).with(A, B).to(Y)
-//   - events on(Foo).do(X, 'foo')
+//   - di bind(X).with(A, B).to(Y) DONE
+//   - events on(Foo).do(X, 'foo') DONE
 //   - http routing http(GetFoo).do(X, 'foo')
 //   - cli routing command(ServeHttp).do(X, 'foo')
 //   - interceptors bind(X).intercept('foo', Y, Z)
 //   - decorators bind(X).decorate(Y, Z)
 //   - factories bind(X).factory(Foo, (foo) => foo.getX())
-//   - use extra args on(Foo).use(Y).do(X, 'foo')
+//   - use extra args on(Foo).use(Y).do(X, 'foo') DONE
 //   - Bind = di | On = events | Http = http | Cli = cli
 // - Throw on missing definition
 // - Detect missing dependencies in a module defnition type
