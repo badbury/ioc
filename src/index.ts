@@ -1,3 +1,3 @@
-export * from './container-x';
+export * from './container';
 export * from './dependency-injection';
 export * from './events';
