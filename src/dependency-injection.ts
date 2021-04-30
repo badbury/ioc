@@ -1,4 +1,7 @@
-export abstract class Resolver<T, K = any> {
+import { Definition } from './container';
+
+export abstract class Resolver<T, K = any> implements Definition<Resolver<T, K>> {
+  definition = Resolver;
   constructor(public key: K) {}
   abstract resolve(container: ServiceLocator): T;
 }

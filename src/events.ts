@@ -1,6 +1,8 @@
+import { Definition } from './container';
 import { ServiceLocator } from './dependency-injection';
 
-export abstract class Listener<T> {
+export abstract class Listener<T> implements Definition<Listener<T>> {
+  definition = Listener;
   constructor(public key: T) {}
   abstract handle(subject: T, container: ServiceLocator): void;
 }

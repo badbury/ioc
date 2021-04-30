@@ -1,4 +1,7 @@
-import { Container, bind, lookup, on, value, EventSink } from '../src';
+import { http, HttpModule, StartHttpServer } from '../../http-server/src/module';
+import { GetCompanies } from '../../http-server/examples/simple-use-case/get-companies';
+import { GetCompaniesHttpRoute } from '../../http-server/examples/simple-use-case/get-companies-http';
+import { Container, bind, lookup, on, value, EventSink, Definition } from '../src';
 
 // @TODO:
 // - Implement recursive loop checks
@@ -57,7 +60,7 @@ class Trigger {
 }
 
 export class MyModule {
-  register(): any[] {
+  register(): Definition[] {
     return [
       bind(MyConfig),
       bind(Bar),
@@ -80,6 +83,9 @@ export class MyModule {
       on(Baz)
         .use(Foo99)
         .do((baz, foo) => console.log('Arrow Baz...', baz, foo.getBar())),
+      bind(GetCompanies),
+      bind(GetCompaniesHttpRoute),
+      http(GetCompaniesHttpRoute), //.do(GetCompanies, 'handle'),
     ];
   }
 
@@ -93,7 +99,7 @@ export class MyModule {
 }
 
 const m = new MyModule();
-const c = new Container([m]);
+const c = new Container([m, new HttpModule()]);
 
 console.log(c.get(Bar));
 const foo = c.get(Foo);
@@ -103,3 +109,5 @@ console.log(foo99);
 console.log(foo.getBar());
 c.emit(new Baz('yas'));
 c.emit(foo99);
+
+c.emit(new StartHttpServer(8080));

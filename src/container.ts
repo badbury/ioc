@@ -1,16 +1,21 @@
 import { DependencyResolver, ServiceLocator, ValueResolver } from './dependency-injection';
 import { EventBus, EventSink } from './events';
 
+export type Definition<T = any> = {
+  definition: { prototype: T };
+  constructor: { prototype: T };
+};
+
 export interface Module {
-  register(): any[];
+  register(): Definition[];
 }
 
 export class RegisterDefinitions {
-  constructor(public readonly definitions: any[], public readonly container: Container) {}
+  constructor(public readonly definitions: Definition[], public readonly container: Container) {}
 }
 
 export class Container implements EventSink, ServiceLocator {
-  private defintions: any[];
+  private defintions: Definition[];
   private events: EventSink;
   private resolver: ServiceLocator;
 
