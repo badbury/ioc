@@ -24,14 +24,14 @@ export class DependencyResolver implements ServiceLocator {
   }
 }
 
-type Constructor<T = any, P extends any[] = any[]> = new (...args: P) => T;
-type ClassLike<T extends Constructor<T>> = Constructor<InstanceType<T>>;
+type HasPrototype<T> = { prototype: any };
+// eslint-disable-next-line @typescript-eslint/ban-types
+type AbstractClass<T extends HasPrototype<T> = any> = Function & { prototype: T['prototype'] };
+type Newable<T = any, P extends any[] = any[]> = new (...args: P) => T;
+type ClassLike<T extends Newable<any>> = Newable<InstanceType<T>>;
 
-export type PartialResolver<
-  T extends new (...args: any[]) => InstanceType<T>,
-  P extends TypeParams<T>
-> = {
-  with(...args: P): Resolver<T>;
+export type PartialResolver<K extends AbstractClass<K>> = {
+  to<T extends ClassLike<T> & K>(type: T): BindResolver<T, K>;
 };
 
 type AsConstructors<T extends any[]> = {
@@ -43,9 +43,13 @@ type TypeParams<T extends ClassLike<T>> = T extends new (...args: infer P) => an
   ? AsConstructors<P>
   : never;
 
-export class BindResolver<T extends ClassLike<T>, K = T, P extends TypeParams<T> = TypeParams<T>>
+export class BindResolver<
+    T extends ClassLike<T>,
+    K extends AbstractClass<K> & AbstractClass<T> = T,
+    P extends TypeParams<T> = TypeParams<T>
+  >
   extends Resolver<T, K>
-  implements PartialResolver<T, P> {
+  implements PartialResolver<K> {
   protected instance?: InstanceType<T>;
 
   constructor(public key: K, public type: T, private args: P | [] = []) {
@@ -67,8 +71,8 @@ export class BindResolver<T extends ClassLike<T>, K = T, P extends TypeParams<T>
     return new BindResolver(this.key, this.type, args);
   }
 
-  to<N>(key: N): BindResolver<T, N, P> {
-    return new BindResolver(key, this.type, this.args);
+  to<N extends ClassLike<N> & K>(type: N): BindResolver<N, K, TypeParams<N>> {
+    return new BindResolver(this.key, type, []);
   }
 }
 
@@ -112,8 +116,10 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
   }
 }
 
-export function bind<T extends ClassLike<T>>(type: T): BindResolver<T> {
-  return new BindResolver(type, type);
+export function bind<T extends AbstractClass<T>>(
+  type: T,
+): T extends Newable ? BindResolver<T, T> : PartialResolver<T> {
+  return new BindResolver(type, type as any) as any;
 }
 
 export function lookup<T extends ClassLike<T>>(type: T): LookupResolver<T> {

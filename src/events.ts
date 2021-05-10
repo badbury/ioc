@@ -11,9 +11,39 @@ export abstract class EventSink {
   abstract emit<T>(subject: T): void;
 }
 
-export class EventBus implements EventSink {
+export interface DynamicEventSink {
+  [method: string]: <T>(param: T) => void;
+  process: <T>(param: T) => void;
+  dispatch: <T>(param: T) => void;
+  do: <T>(param: T) => void;
+  notify: <T>(param: T) => void;
+  <T>(param: T): void;
+}
+export abstract class DynamicEventSink extends EventSink {}
+
+function CallableInstance(this: typeof CallableInstance, property: string) {
+  const func = this.constructor.prototype[property];
+  const apply = function (...args: any[]) {
+    return func.apply(apply, args);
+  };
+  Object.setPrototypeOf(apply, this.constructor.prototype);
+  Object.getOwnPropertyNames(func).forEach(function (p) {
+    const propertyDescriptor = Object.getOwnPropertyDescriptor(func, p);
+    if (propertyDescriptor) {
+      Object.defineProperty(apply, p, propertyDescriptor);
+    }
+  });
+  return apply;
+}
+CallableInstance.prototype = Object.create(Function.prototype);
+
+/* eslint-disable @typescript-eslint/no-empty-interface */
+export interface EventBus extends DynamicEventSink {}
+
+export class EventBus extends (CallableInstance as any) {
   private listeners: Map<any, Listener<any>[]> = new Map();
   constructor(private container: ServiceLocator, definitions: any[]) {
+    super('emit');
     for (const definition of definitions) {
       if (definition instanceof Listener) {
         const handlers = this.listeners.get(definition.key) || [];
@@ -21,7 +51,21 @@ export class EventBus implements EventSink {
         this.listeners.set(definition.key, handlers);
       }
     }
+    const handler = {
+      get(target: EventBus, key: any) {
+        const upstream = target[key];
+        if (typeof upstream !== 'undefined') {
+          return upstream;
+        }
+        return target.emit.bind(target);
+      },
+      apply(target: EventBus, _: unknown, args: unknown[]) {
+        return target.emit(args[0]);
+      },
+    };
+    return (new Proxy(this, handler) as unknown) as EventBus;
   }
+
   emit<T>(subject: T): void {
     this.listeners
       .get((subject as any).constructor as any)
