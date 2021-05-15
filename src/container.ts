@@ -1,5 +1,6 @@
 import { DependencyResolver, ServiceLocator, ValueResolver } from './dependency-injection';
 import { EventBus, EventSink, DynamicEventSink } from './events';
+import { Startup } from './lifecycle';
 
 export type Definition<T = any> = {
   definition: { prototype: T };
@@ -28,13 +29,14 @@ export class Container implements EventSink, ServiceLocator {
     this.defintions.push(new ValueResolver(ServiceLocator, this));
     this.resolver = new DependencyResolver(this.defintions);
     this.events.emit(new RegisterDefinitions(this.defintions, this));
+    this.events.emit(new Startup());
   }
 
   get<T extends { prototype: any }>(type: T): T['prototype'] {
     return this.resolver.get(type);
   }
 
-  emit<T>(subject: T): void {
+  emit<T>(subject: T): unknown {
     return this.events.emit(subject);
   }
 }

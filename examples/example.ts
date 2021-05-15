@@ -1,10 +1,19 @@
 import { http, HttpModule, StartHttpServer } from '../../http-server/src/module';
 import { GetCompanies } from '../../http-server/examples/simple-use-case/get-companies';
 import { GetCompaniesHttpRoute } from '../../http-server/examples/simple-use-case/get-companies-http';
-import { Container, bind, lookup, on, value, DynamicEventSink, Definition } from '../src';
+import {
+  Container,
+  bind,
+  lookup,
+  on,
+  value,
+  DynamicEventSink,
+  LifecycleModule,
+  Definition,
+  Shutdown,
+} from '../src';
 import { GetUsers } from '../../http-server/examples/use-case-with-types/get-users';
 import { GetUsersHttpRoute } from '../../http-server/examples/use-case-with-types/get-users-http';
-
 // @TODO:
 // - Implement recursive loop checks
 // - Detect incomplete bindings e.g. bind(Foo) should fail if Foo requires params
@@ -128,6 +137,16 @@ export class MyModule {
       bind(GetUsers),
       bind(GetUsersHttpRoute),
       http(GetUsersHttpRoute).do(GetUsers, 'handle'),
+      on(Shutdown).do(async () => {
+        console.log('Prepping shutdown');
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        console.log('Finishing shutdown');
+        return 'Foooo';
+      }),
+      // every(1)
+      //   .minute()
+      //   .do(() => new Shutdown(0, '1 minute up'))
+      //   .emit(),
       // http(GetCompaniesHttpRoute).do((req) => {
       //   console.log(req);
       //   return [{ name: 'Steve' }];
@@ -144,8 +163,7 @@ export class MyModule {
   }
 }
 
-const m = new MyModule();
-const c = new Container([m, new HttpModule()]);
+const c = new Container([new MyModule(), new HttpModule(), new LifecycleModule()]);
 
 console.log(c.get(Bar));
 const foo = c.get(Foo);
@@ -155,3 +173,4 @@ console.log(foo);
 c.emit(foo99);
 
 c.emit(new StartHttpServer(8080));
+// c.emit(new Shutdown(1, 'Because its time'));
