@@ -31,6 +31,8 @@ import { GetUsersHttpRoute } from '../../http-server/examples/use-case-with-type
 //     - decorators bind(X).decorate(Y, Z)
 //     - pipeline bind(X).pipeline().pipe(Y, 'foo').pipe(Z, 'bar')
 //     - factories bind(X).factory(Foo, (foo) => foo.getX())
+//     - dispatchers on(X).dispatchWith(Y, 'foo') DONE
+//     - emit on(X).do(Y, 'foo').emitResponse()
 // - Bind = di | On = events | Http = http | Cli = command | Timer = every
 // - Throw on missing definition
 // - Detect missing dependencies in a module defnition type
@@ -74,6 +76,7 @@ class Foo {
   }
 }
 
+abstract class Foo88 extends Foo {}
 abstract class Foo99 extends Foo {}
 
 class Baz {
@@ -120,6 +123,7 @@ export class MyModule {
           lookup(MyConfig).map((config) => config.url),
           value(99),
         ),
+      // bind(Foo88).factory([Bar, MyConfig], (bar, config) => new Foo(bar, config.url, 88)),
       bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(1)),
       bind(Box),
       bind(Trigger).with(DynamicEventSink as any, DynamicEventSink),
@@ -146,7 +150,7 @@ export class MyModule {
       // every(1)
       //   .minute()
       //   .do(() => new Shutdown(0, '1 minute up'))
-      //   .emit(),
+      //   .emitResponse(),
       // http(GetCompaniesHttpRoute).do((req) => {
       //   console.log(req);
       //   return [{ name: 'Steve' }];

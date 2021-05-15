@@ -1,4 +1,5 @@
 import { Definition } from './container';
+import { AbstractClass, AllInstanceType, ClassLike, Newable } from './type-utils';
 
 export abstract class Resolver<T, K = any> implements Definition<Resolver<T, K>> {
   definition = Resolver;
@@ -24,14 +25,13 @@ export class DependencyResolver implements ServiceLocator {
   }
 }
 
-type HasPrototype<T> = { prototype: any };
-// eslint-disable-next-line @typescript-eslint/ban-types
-type AbstractClass<T extends HasPrototype<T> = any> = Function & { prototype: T['prototype'] };
-type Newable<T = any, P extends any[] = any[]> = new (...args: P) => T;
-type ClassLike<T extends Newable<any>> = Newable<InstanceType<T>>;
-
 export type PartialResolver<K extends AbstractClass<K>> = {
   to<T extends ClassLike<T> & K>(type: T): BindResolver<T, K>;
+
+  factory<P extends AbstractClass[]>(
+    args: P,
+    factory: (...args: AllInstanceType<P>) => K['prototype'],
+  ): FactoryResolver<K, P, K>;
 };
 
 type AsConstructors<T extends any[]> = {
@@ -73,6 +73,33 @@ export class BindResolver<
 
   to<N extends ClassLike<N> & K>(type: N): BindResolver<N, K, TypeParams<N>> {
     return new BindResolver(this.key, type, []);
+  }
+
+  factory<P extends AbstractClass[]>(
+    args: P,
+    factory: (...args: AllInstanceType<P>) => InstanceType<T>,
+  ): FactoryResolver<T, P, K> {
+    return new FactoryResolver(this.key, args, factory);
+  }
+}
+
+export class FactoryResolver<
+  T extends AbstractClass<T>,
+  P extends AbstractClass[],
+  K = T
+> extends Resolver<T, K> {
+  constructor(
+    public key: K,
+    private args: P,
+    private factory: (...args: AllInstanceType<P>) => T['prototype'],
+  ) {
+    super(key);
+  }
+  resolve(container: ServiceLocator): T['prototype'] {
+    const args = (this.args.map((arg) =>
+      arg instanceof Resolver ? arg.resolve(container) : container.get(arg),
+    ) as unknown) as AllInstanceType<P>;
+    return this.factory(...(args as any));
   }
 }
 

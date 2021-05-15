@@ -1,6 +1,7 @@
 import { Definition } from './container';
 import { bind } from './dependency-injection';
-import { DynamicEventSink, ListnerFunctions, on } from './events';
+import { DynamicEventSink, on } from './events';
+import { ListnerFunctions } from './events-dispatchers';
 
 export class NodeJSLifecycleModule {
   constructor() {}
