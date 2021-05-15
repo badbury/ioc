@@ -93,18 +93,19 @@ export class EventBus extends (CallableInstance as any) {
   }
 }
 
+type HasPrototype<T> = { prototype: T };
 // eslint-disable-next-line @typescript-eslint/ban-types
-type AbstractClass<T = any> = Function & { prototype: T };
-type Constructor<T = any, P extends any[] = any[]> = new (...args: P) => T;
-type ClassLike<T extends Constructor<T>> = Constructor<InstanceType<T>>;
+type AbstractClass<T extends HasPrototype<T> = any> = Function & { prototype: T['prototype'] };
+type Newable<T = any, P extends any[] = any[]> = new (...args: P) => T;
+type ClassLike<T extends Newable<T>> = Newable<InstanceType<T>>;
 
 type AllInstanceType<T extends AbstractClass[]> = {
   [K in keyof T]: T[K] extends { prototype: infer V } ? V : never;
 };
 
 type ListenerMethod<
-  TClassType extends Constructor,
-  TSubjectType extends Constructor,
+  TClassType extends Newable,
+  TSubjectType extends Newable,
   TExtrasType extends AbstractClass[],
   TClass = InstanceType<TClassType>,
   TSubject = InstanceType<TSubjectType>,
@@ -122,7 +123,7 @@ type ListenerMethod<
     : never;
 }[keyof TClass];
 
-type ListenerFunction<TSubjectType extends Constructor, TExtrasType extends AbstractClass[]> = (
+type ListenerFunction<TSubjectType extends Newable, TExtrasType extends AbstractClass[]> = (
   subject: InstanceType<TSubjectType>,
   ...args: AllInstanceType<TExtrasType>
 ) => unknown;
@@ -130,8 +131,8 @@ type ListenerFunction<TSubjectType extends Constructor, TExtrasType extends Abst
 export type ListnerFunctions<T extends ClassLike<T>> = ((subject: InstanceType<T>) => unknown)[];
 
 type DispatchMethod<
-  TClassType extends Constructor,
-  TSubjectType extends Constructor,
+  TClassType extends Newable,
+  TSubjectType extends Newable,
   TExtrasType extends AbstractClass[],
   TClass = InstanceType<TClassType>,
   TSubject = InstanceType<TSubjectType>,
@@ -166,8 +167,8 @@ export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClas
   }
 
   do(target: ListenerFunction<T, A>): Listener<T>;
-  do<C extends Constructor, M extends ListenerMethod<C, T, A>>(target: C, method: M): Listener<T>;
-  do<C extends Constructor, M extends ListenerMethod<C, T, A>>(
+  do<C extends Newable, M extends ListenerMethod<C, T, A>>(target: C, method: M): Listener<T>;
+  do<C extends Newable, M extends ListenerMethod<C, T, A>>(
     target: C | ListenerFunction<T, A>,
     method?: M,
   ): Listener<T> {
@@ -177,11 +178,11 @@ export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClas
   }
 
   dispatchWith(target: DispatchFunction<T, A>): Dispatcher<T>;
-  dispatchWith<C extends Constructor, M extends DispatchMethod<C, T, A>>(
+  dispatchWith<C extends Newable, M extends DispatchMethod<C, T, A>>(
     target: C,
     method: M,
   ): Dispatcher<T>;
-  dispatchWith<C extends Constructor, M extends DispatchMethod<C, T, A>>(
+  dispatchWith<C extends Newable, M extends DispatchMethod<C, T, A>>(
     target: C | DispatchFunction<T, A>,
     method?: M,
   ): Dispatcher<T> {
@@ -194,7 +195,7 @@ export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClas
 export class ClassEventListener<
   T extends ClassLike<T>,
   A extends AbstractClass[],
-  V extends Constructor,
+  V extends Newable,
   M extends ListenerMethod<V, T, A>
 > extends Listener<T> {
   constructor(public key: T, public args: A, private listenerClass: V, private listenerMethod: M) {
@@ -225,7 +226,7 @@ export class FunctionEventListener<
 export class ClassEventDispatcher<
   T extends ClassLike<T>,
   A extends AbstractClass[],
-  V extends Constructor,
+  V extends Newable,
   M extends DispatchMethod<V, T, A>
 > extends Dispatcher<T> {
   constructor(public key: T, public args: A, private listenerClass: V, private listenerMethod: M) {
