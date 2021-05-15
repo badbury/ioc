@@ -1,8 +1,8 @@
 import { DependencyResolver, ServiceLocator, ValueResolver } from './dependency-injection';
 import { EventBus, EventSink, DynamicEventSink } from './events';
-import { Startup } from './lifecycle';
+import { Startup } from './node-js-lifecycle';
 
-export type Definition<T = any> = {
+export type Definition<T = unknown> = {
   definition: { prototype: T };
   constructor: { prototype: T };
 };

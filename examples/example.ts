@@ -8,7 +8,7 @@ import {
   on,
   value,
   DynamicEventSink,
-  LifecycleModule,
+  NodeJSLifecycleModule,
   Definition,
   Shutdown,
 } from '../src';
@@ -163,7 +163,7 @@ export class MyModule {
   }
 }
 
-const c = new Container([new MyModule(), new HttpModule(), new LifecycleModule()]);
+const c = new Container([new MyModule(), new HttpModule(), new NodeJSLifecycleModule()]);
 
 console.log(c.get(Bar));
 const foo = c.get(Foo);

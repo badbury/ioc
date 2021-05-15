@@ -29,7 +29,7 @@ export abstract class DynamicEventSink extends EventSink {}
 
 function CallableInstance(this: typeof CallableInstance, property: string) {
   const func = this.constructor.prototype[property];
-  const apply = function (...args: any[]) {
+  const apply = function (...args: unknown[]) {
     return func.apply(apply, args);
   };
   Object.setPrototypeOf(apply, this.constructor.prototype);
@@ -58,7 +58,7 @@ export class EventBus extends (CallableInstance as any) {
   private listeners: Map<unknown, Listener<unknown>[]> = new Map();
   private dispatchers: Map<unknown, Dispatcher<unknown>> = new Map();
 
-  constructor(private container: ServiceLocator, definitions: any[]) {
+  constructor(private container: ServiceLocator, definitions: unknown[]) {
     super('emit');
     for (const definition of definitions) {
       if (definition instanceof Listener) {
@@ -71,7 +71,7 @@ export class EventBus extends (CallableInstance as any) {
       }
     }
     const handler = {
-      get(target: EventBus, key: any) {
+      get(target: EventBus, key: string) {
         const upstream = target[key];
         if (typeof upstream !== 'undefined') {
           return upstream;
@@ -110,7 +110,10 @@ type ListenerMethod<
   TSubject = InstanceType<TSubjectType>,
   TExtras = AllInstanceType<TExtrasType>
 > = {
-  [TProperty in keyof TClass]: TClass[TProperty] extends (arg: infer U, ...extras: infer E) => any
+  [TProperty in keyof TClass]: TClass[TProperty] extends (
+    arg: infer U,
+    ...extras: infer E
+  ) => unknown
     ? U extends TSubject
       ? E extends TExtras
         ? TProperty
@@ -136,11 +139,11 @@ type DispatchMethod<
 > = {
   [TProperty in keyof TClass]: TClass[TProperty] extends (
     arg: infer U,
-    listeners: ListnerFunctions<infer X>,
+    listeners: infer X,
     ...extras: infer E
-  ) => any
+  ) => unknown
     ? U extends TSubject
-      ? X extends TSubject
+      ? X extends ListnerFunctions<TSubjectType>
         ? E extends TExtras
           ? TProperty
           : never

@@ -2,19 +2,21 @@ import { Definition } from './container';
 import { bind } from './dependency-injection';
 import { DynamicEventSink, ListnerFunctions, on } from './events';
 
-export class LifecycleModule {
+export class NodeJSLifecycleModule {
   constructor() {}
 
   register(): Definition[] {
     return [
-      bind(LifecycleModule),
+      bind(NodeJSLifecycleModule),
       bind(NodeSignalHandlers).with(DynamicEventSink),
-      on(Shutdown).dispatchWith(async (shutdown, listeners) => {
-        await Promise.all(listeners.map(async (listener) => listener(shutdown)));
-        console.log(shutdown.reason, shutdown.exitCode);
-        shutdown.exit();
-      }),
-      // on(Shutdown).dispatchWith(LifecycleModule, 'shutdownDispatcher'),
+      // on(Shutdown).dispatchWith(async (shutdown, listeners) => {
+      //   await Promise.all(listeners.map(async (listener) => listener(shutdown)));
+      //   console.log(shutdown.reason, shutdown.exitCode);
+      //   if (shutdown.exitCode !== false) {
+      //     process.exit(shutdown.exitCode);
+      //   }
+      // }),
+      on(Shutdown).dispatchWith(NodeJSLifecycleModule, 'shutdownDispatcher'),
       on(Startup)
         .use(NodeSignalHandlers)
         .do((_, nsh) => nsh.bind()),
@@ -30,18 +32,14 @@ export class LifecycleModule {
   ): Promise<void> {
     await Promise.all(listeners.map(async (listener) => listener(shutdown)));
     console.log(shutdown.reason, shutdown.exitCode);
-    shutdown.exit();
+    if (shutdown.exitCode !== false) {
+      process.exit(shutdown.exitCode);
+    }
   }
 }
 
 export class Shutdown {
   constructor(public readonly exitCode: number | false, public readonly reason: string) {}
-
-  async exit(): Promise<void> {
-    if (this.exitCode !== false) {
-      process.exit(this.exitCode);
-    }
-  }
 }
 
 export class Startup {}
