@@ -8,7 +8,7 @@ import {
   DispatchFunction,
   DispatchMethod,
 } from './events-dispatchers';
-import { AbstractClass, AllInstanceType, ClassLike, Newable } from './type-utils';
+import { AbstractClass, AllInstanceType, ClassLike, Method, Newable } from './type-utils';
 
 export abstract class Listener<T> implements Definition<Listener<T>> {
   definition = Listener;
@@ -20,22 +20,8 @@ export abstract class Listener<T> implements Definition<Listener<T>> {
 type ListenerMethod<
   TClassType extends Newable,
   TSubjectType extends Newable,
-  TExtrasType extends AbstractClass[],
-  TClass = InstanceType<TClassType>,
-  TSubject = InstanceType<TSubjectType>,
-  TExtras = AllInstanceType<TExtrasType>
-> = {
-  [TProperty in keyof TClass]: TClass[TProperty] extends (
-    arg: infer U,
-    ...extras: infer E
-  ) => unknown
-    ? U extends TSubject
-      ? E extends TExtras
-        ? TProperty
-        : never
-      : never
-    : never;
-}[keyof TClass];
+  TExtrasType extends AbstractClass[]
+> = Method<InstanceType<TClassType>, [InstanceType<TSubjectType>, ...AllInstanceType<TExtrasType>]>;
 
 type ListenerFunction<TSubjectType extends Newable, TExtrasType extends AbstractClass[]> = (
   subject: InstanceType<TSubjectType>,
@@ -43,7 +29,7 @@ type ListenerFunction<TSubjectType extends Newable, TExtrasType extends Abstract
 ) => unknown;
 
 export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClass[] = []> {
-  constructor(public key: T, public args: A = [] as any) {}
+  constructor(public key: T, public args: A = ([] as unknown) as A) {}
 
   use<P extends AbstractClass[]>(...args: P): EventListenerBuilder<T, P> {
     return new EventListenerBuilder(this.key, args);

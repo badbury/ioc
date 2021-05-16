@@ -25,13 +25,10 @@ export class DependencyResolver implements ServiceLocator {
   }
 }
 
-export type PartialResolver<K extends AbstractClass<K>> = {
+export type AbstractResolver<K extends AbstractClass<K>> = {
   to<T extends ClassLike<T> & K>(type: T): BindResolver<T, K>;
-
-  factory<P extends AbstractClass[]>(
-    args: P,
-    factory: (...args: AllInstanceType<P>) => K['prototype'],
-  ): FactoryResolver<K, P, K>;
+  use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
+  factory(factory: () => K['prototype']): FactoryResolver<K, []>;
 };
 
 type AsConstructors<T extends any[]> = {
@@ -49,7 +46,7 @@ export class BindResolver<
     P extends TypeParams<T> = TypeParams<T>
   >
   extends Resolver<T, K>
-  implements PartialResolver<K> {
+  implements AbstractResolver<K> {
   protected instance?: InstanceType<T>;
 
   constructor(public key: K, public type: T, private args: P | [] = []) {
@@ -75,31 +72,40 @@ export class BindResolver<
     return new BindResolver(this.key, type, []);
   }
 
-  factory<P extends AbstractClass[]>(
-    args: P,
-    factory: (...args: AllInstanceType<P>) => InstanceType<T>,
-  ): FactoryResolver<T, P, K> {
-    return new FactoryResolver(this.key, args, factory);
+  use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A> {
+    return new FactoryBuilder(this.key, args);
+  }
+
+  factory(factory: () => InstanceType<T>): FactoryResolver<K, []> {
+    return new FactoryResolver(this.key, [], factory);
+  }
+}
+
+export class FactoryBuilder<T extends AbstractClass<T>, A extends AbstractClass[] = []> {
+  constructor(public key: T, public args: A = ([] as unknown) as A) {}
+
+  factory(factory: (...args: AllInstanceType<A>) => T['prototype']): FactoryResolver<T, A> {
+    return new FactoryResolver(this.key, this.args, factory);
   }
 }
 
 export class FactoryResolver<
   T extends AbstractClass<T>,
-  P extends AbstractClass[],
-  K = T
-> extends Resolver<T, K> {
+  P extends AbstractClass[]
+> extends Resolver<T, T> {
   constructor(
-    public key: K,
+    public key: T,
     private args: P,
     private factory: (...args: AllInstanceType<P>) => T['prototype'],
   ) {
     super(key);
   }
+
   resolve(container: ServiceLocator): T['prototype'] {
     const args = (this.args.map((arg) =>
       arg instanceof Resolver ? arg.resolve(container) : container.get(arg),
     ) as unknown) as AllInstanceType<P>;
-    return this.factory(...(args as any));
+    return this.factory(...args);
   }
 }
 
@@ -145,7 +151,7 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
 
 export function bind<T extends AbstractClass<T>>(
   type: T,
-): T extends Newable ? BindResolver<T, T> : PartialResolver<T> {
+): T extends Newable ? BindResolver<T, T> : AbstractResolver<T> {
   return new BindResolver(type, type as any) as any;
 }
 

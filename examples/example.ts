@@ -30,7 +30,7 @@ import { GetUsersHttpRoute } from '../../http-server/examples/use-case-with-type
 //     - interceptors bind(X).intercept('foo', Y, Z)
 //     - decorators bind(X).decorate(Y, Z)
 //     - pipeline bind(X).pipeline().pipe(Y, 'foo').pipe(Z, 'bar') (use Proxy)
-//     - factories bind(X).use(Foo).factory((foo) => foo.getX())
+//     - factories bind(X).use(Foo).factory((foo) => foo.getX()) DONE
 //     - dispatchers on(X).dispatchWith(Y, 'foo') DONE
 //     - emit on(X).do(Y, 'foo').emitResponse() DONE
 //     - fallback bind(X).fallback(vaule(console.log.bind(console)))
@@ -77,6 +77,7 @@ class Foo {
   }
 }
 
+abstract class Foo77 extends Foo {}
 abstract class Foo88 extends Foo {}
 abstract class Foo99 extends Foo {}
 
@@ -131,7 +132,10 @@ export class MyModule {
           lookup(MyConfig).map((config) => config.url),
           value(99),
         ),
-      // bind(Foo88).factory([Bar, MyConfig], (bar, config) => new Foo(bar, config.url, 88)),
+      bind(Foo77).factory(() => new Foo(new Bar('???'), 'Nooo', 77)),
+      bind(Foo88)
+        .use(Bar, MyConfig)
+        .factory((bar, config) => new Foo(bar, config.url, 88)),
       bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(1)),
       bind(Box),
       bind(Trigger).with(DynamicEventSink as any, DynamicEventSink),
@@ -139,9 +143,9 @@ export class MyModule {
       on(Bar).do((bar) => console.log('Arrow Bar...', bar)),
       on(Baz).do(Box, 'process'),
       on(Baz).use(Foo, Bar).do(MyModule, 'handleBaz'),
-      on(Baz).use(Foo99, Bar).do(this.handleBaz),
+      on(Baz).use(Foo88, Bar).do(this.handleBaz),
       on(Baz)
-        .use(Foo99)
+        .use(Foo88)
         .do((baz, foo) => console.log('Arrow Baz...', baz, foo.getBar())),
       on(Tig)
         .do((tig) => tig.makeTog())

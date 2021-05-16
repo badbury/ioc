@@ -2,7 +2,7 @@ import { Definition } from './container';
 import { ServiceLocator } from './dependency-injection';
 import { EventSink } from './events';
 import { Listener } from './events-listeners';
-import { AbstractClass, AllInstanceType, ClassLike, Newable } from './type-utils';
+import { AbstractClass, AllInstanceType, ClassLike, Method, Newable } from './type-utils';
 
 export abstract class Dispatcher<T> implements Definition<Dispatcher<T>> {
   definition = Dispatcher;
@@ -20,25 +20,11 @@ export type ListnerFunctions<T extends ClassLike<T>> = ((subject: InstanceType<T
 export type DispatchMethod<
   TClassType extends Newable,
   TSubjectType extends Newable,
-  TExtrasType extends AbstractClass[],
-  TClass = InstanceType<TClassType>,
-  TSubject = InstanceType<TSubjectType>,
-  TExtras = AllInstanceType<TExtrasType>
-> = {
-  [TProperty in keyof TClass]: TClass[TProperty] extends (
-    arg: infer U,
-    listeners: infer X,
-    ...extras: infer E
-  ) => unknown
-    ? U extends TSubject
-      ? X extends ListnerFunctions<TSubjectType>
-        ? E extends TExtras
-          ? TProperty
-          : never
-        : never
-      : never
-    : never;
-}[keyof TClass];
+  TExtrasType extends AbstractClass[]
+> = Method<
+  InstanceType<TClassType>,
+  [InstanceType<TSubjectType>, ListnerFunctions<TSubjectType>, ...AllInstanceType<TExtrasType>]
+>;
 
 export type DispatchFunction<T extends ClassLike<T>, A extends AbstractClass[]> = (
   subject: InstanceType<T>,
