@@ -29,10 +29,11 @@ import { GetUsersHttpRoute } from '../../http-server/examples/use-case-with-type
 //   - Composers
 //     - interceptors bind(X).intercept('foo', Y, Z)
 //     - decorators bind(X).decorate(Y, Z)
-//     - pipeline bind(X).pipeline().pipe(Y, 'foo').pipe(Z, 'bar')
-//     - factories bind(X).factory(Foo, (foo) => foo.getX())
+//     - pipeline bind(X).pipeline().pipe(Y, 'foo').pipe(Z, 'bar') (use Proxy)
+//     - factories bind(X).use(Foo).factory((foo) => foo.getX())
 //     - dispatchers on(X).dispatchWith(Y, 'foo') DONE
-//     - emit on(X).do(Y, 'foo').emitResponse()
+//     - emit on(X).do(Y, 'foo').emitResponse() DONE
+//     - fallback bind(X).fallback(vaule(console.log.bind(console)))
 // - Bind = di | On = events | Http = http | Cli = command | Timer = every
 // - Throw on missing definition
 // - Detect missing dependencies in a module defnition type
@@ -110,6 +111,13 @@ class Trigger {
   }
 }
 
+class Tig {
+  makeTog() {
+    return new Tog();
+  }
+}
+class Tog {}
+
 export class MyModule {
   register(): Definition[] {
     return [
@@ -135,20 +143,23 @@ export class MyModule {
       on(Baz)
         .use(Foo99)
         .do((baz, foo) => console.log('Arrow Baz...', baz, foo.getBar())),
+      on(Tig)
+        .do((tig) => tig.makeTog())
+        .emitResponse(),
+      on(Tog).do((tog) => console.log('I got the tog!', tog)),
       bind(GetCompanies),
       bind(GetCompaniesHttpRoute),
       http(GetCompaniesHttpRoute).do(GetCompanies, 'handle'),
       bind(GetUsers),
       bind(GetUsersHttpRoute),
       http(GetUsersHttpRoute).do(GetUsers, 'handle'),
-      on(Shutdown).do(async () => {
-        console.log('Prepping shutdown');
+      on(Shutdown).do(async (shutdown) => {
+        console.log('Prepping shutdown', shutdown);
         await new Promise((resolve) => setTimeout(resolve, 2000));
         console.log('Finishing shutdown');
         return 'Foooo';
       }),
-      // every(1)
-      //   .minute()
+      // every('minute')
       //   .do(() => new Shutdown(0, '1 minute up'))
       //   .emitResponse(),
       // http(GetCompaniesHttpRoute).do((req) => {
@@ -175,6 +186,61 @@ const foo99 = c.get(Foo99);
 console.log(foo99);
 console.log(foo);
 c.emit(foo99);
+c.emit(new Tig());
+c.get(Tig);
 
 c.emit(new StartHttpServer(8080));
 // c.emit(new Shutdown(1, 'Because its time'));
+
+// interface ChainableDuration {
+//   and: DurationFunction;
+// }
+
+// interface DurationFunction {
+//   (unit: 'minute'): ChainableDuration;
+//   (duration: number, unit: 'minutes'): ChainableDuration;
+//   (unit: 'second'): ChainableDuration;
+//   (duration: number, unit: 'seconds'): ChainableDuration;
+//   (unit: 'millisecond'): ChainableDuration;
+//   (duration: number, unit: 'milliseconds'): ChainableDuration;
+//   (unit: 'hour'): ChainableDuration;
+//   (duration: number, unit: 'hours'): ChainableDuration;
+//   (unit: 'day'): ChainableDuration;
+//   (duration: number, unit: 'days'): ChainableDuration;
+//   (unit: 'month'): ChainableDuration;
+//   (duration: number, unit: 'months'): ChainableDuration;
+// }
+
+// type Every = DurationFunction;
+
+// const every: Every = function (...args: any[]): any {};
+
+// every('day').and(5, 'minutes');
+
+//// Below is post MVP
+// type OneToTen = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+// type ElevenToTwenty = 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 20;
+// type TwentyOneToThirty = 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 30;
+// type ThirtyOneToForty = 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 40;
+// type FortyOneToFifty = 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50;
+// type FiftyOneToThirty = 51 | 52 | 53 | 54 | 55 | 56 | 57 | 58 | 59 | 60;
+// type DayOfMonth = OneToTen | ElevenToTwenty | TwentyOneToThirty | 31;
+// type HourOfDay = OneToTen | 11 | 12;
+// type MinuteInHour =
+//   | OneToTen
+//   | ElevenToTwenty
+//   | TwentyOneToThirty
+//   | ThirtyOneToForty
+//   | FortyOneToFifty
+//   | FiftyOneToThirty;
+
+// interface TimePointFunction {
+//   (duration: DayOfMonth, type: 'day of the month'): ChainableDuration;
+//   (duration: HourOfDay, type: 'AM' | 'PM'): ChainableDuration;
+//   (duration: MinuteInHour, type: 'past the hour'): ChainableDuration;
+// }
+
+// every('month').at(17, 'day of the month');
+// every('day').at(3, 'AM');
+// every('hour').at(23, 'past the hour');
+// every('month').at(17, 'day of the month').at(3, 'AM').at(23, 'past the hour');

@@ -1,5 +1,6 @@
 import { Definition } from './container';
 import { ServiceLocator } from './dependency-injection';
+import { EventSink } from './events';
 import {
   ClassEventDispatcher,
   Dispatcher,
@@ -12,7 +13,8 @@ import { AbstractClass, AllInstanceType, ClassLike, Newable } from './type-utils
 export abstract class Listener<T> implements Definition<Listener<T>> {
   definition = Listener;
   constructor(public key: T) {}
-  abstract handle(subject: T, container: ServiceLocator): unknown;
+  abstract handle(subject: T, container: ServiceLocator, events: EventSink): unknown;
+  abstract emitResponse(): Listener<T>;
 }
 
 type ListenerMethod<
@@ -79,14 +81,34 @@ export class ClassEventListener<
   V extends Newable,
   M extends ListenerMethod<V, T, A>
 > extends Listener<T> {
-  constructor(public key: T, public args: A, private listenerClass: V, private listenerMethod: M) {
+  constructor(
+    public key: T,
+    public args: A,
+    private listenerClass: V,
+    private listenerMethod: M,
+    private shouldEmitResponse: boolean = false,
+  ) {
     super(key);
   }
 
-  handle(subject: InstanceType<T>, container: ServiceLocator): unknown {
+  handle(subject: InstanceType<T>, container: ServiceLocator, sink: EventSink): unknown {
     const args = this.args.map((key) => container.get(key)) as AllInstanceType<A>;
     const handler = container.get(this.listenerClass);
-    return handler[this.listenerMethod](subject, ...args);
+    const result = handler[this.listenerMethod](subject, ...args);
+    if (this.shouldEmitResponse) {
+      emitUnknownValue(result, sink);
+    }
+    return result;
+  }
+
+  emitResponse(): ClassEventListener<T, A, V, M> {
+    return new ClassEventListener(
+      this.key,
+      this.args,
+      this.listenerClass,
+      this.listenerMethod,
+      true,
+    );
   }
 }
 
@@ -94,12 +116,35 @@ export class FunctionEventListener<
   T extends ClassLike<T>,
   A extends AbstractClass[]
 > extends Listener<T> {
-  constructor(public key: T, public args: A, private handler: ListenerFunction<T, A>) {
+  constructor(
+    public key: T,
+    public args: A,
+    private handler: ListenerFunction<T, A>,
+    private shouldEmitResponse: boolean = false,
+  ) {
     super(key);
   }
 
-  handle(subject: InstanceType<T>, container: ServiceLocator): unknown {
+  handle(subject: InstanceType<T>, container: ServiceLocator, sink: EventSink): unknown {
     const args = this.args.map((key) => container.get(key)) as AllInstanceType<A>;
-    return this.handler(subject, ...args);
+    const result = this.handler(subject, ...args);
+    if (this.shouldEmitResponse) {
+      emitUnknownValue(result, sink);
+    }
+    return result;
   }
+
+  emitResponse(): FunctionEventListener<T, A> {
+    return new FunctionEventListener(this.key, this.args, this.handler, true);
+  }
+}
+
+function emitUnknownValue(value: unknown, sink: EventSink): unknown {
+  if (value instanceof Promise) {
+    return value.then((unwrapped) => emitUnknownValue(unwrapped, sink));
+  }
+  if (Array.isArray(value)) {
+    return value.map((unwrapped) => emitUnknownValue(unwrapped, sink));
+  }
+  return sink.emit(value);
 }

@@ -13,6 +13,7 @@ export interface DynamicEventSink {
   dispatch: <T>(param: T) => unknown;
   do: <T>(param: T) => unknown;
   notify: <T>(param: T) => unknown;
+  add: <T>(param: T) => unknown;
   <T>(param: T): unknown;
 }
 export abstract class DynamicEventSink extends EventSink {}
@@ -36,8 +37,8 @@ CallableInstance.prototype = Object.create(Function.prototype);
 const defaultDispatcher: Dispatcher<unknown> = {
   key: null,
   definition: Dispatcher,
-  handle(subject, container, listeners) {
-    return listeners.map((handler) => handler.handle(subject, container));
+  handle(subject, container, sink, listeners) {
+    return listeners.map((handler) => handler.handle(subject, container, sink));
   },
 };
 
@@ -79,7 +80,7 @@ export class EventBus extends (CallableInstance as any) {
     const constructor = (subject as any).constructor as any;
     const dispatcher = this.dispatchers.get(constructor) || defaultDispatcher;
     const listeners = this.listeners.get(constructor) || [];
-    return dispatcher.handle(subject, this.container, listeners);
+    return dispatcher.handle(subject, this.container, this, listeners);
   }
 }
 
