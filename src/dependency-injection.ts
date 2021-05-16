@@ -31,6 +31,14 @@ export type AbstractResolver<K extends AbstractClass<K>> = {
   factory(factory: () => K['prototype']): FactoryResolver<K, []>;
 };
 
+export type NeedsArgumentsResolver<
+  T extends ClassLike<T>,
+  K extends AbstractClass<K> & AbstractClass<T> = T,
+  P extends TypeParams<T> = TypeParams<T>
+> = {
+  with(...args: P): BindResolver<T, K, P>;
+};
+
 type AsConstructors<T extends any[]> = {
   // eslint-disable-next-line @typescript-eslint/ban-types
   [K in keyof T]: (Function & { prototype: T[K] }) | Resolver<T[K]>;
@@ -151,7 +159,11 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
 
 export function bind<T extends AbstractClass<T>>(
   type: T,
-): T extends Newable ? BindResolver<T, T> : AbstractResolver<T> {
+): T extends Newable
+  ? T extends new () => any
+    ? BindResolver<T, T>
+    : NeedsArgumentsResolver<T, T>
+  : AbstractResolver<T> {
   return new BindResolver(type, type as any) as any;
 }
 

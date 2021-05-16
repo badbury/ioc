@@ -64,7 +64,6 @@ class MyConfig {
 
 class Bar {
   one = Math.random();
-  constructor(public two: string) {}
 }
 
 class Foo {
@@ -132,7 +131,7 @@ export class MyModule {
           lookup(MyConfig).map((config) => config.url),
           value(99),
         ),
-      bind(Foo77).factory(() => new Foo(new Bar('???'), 'Nooo', 77)),
+      bind(Foo77).factory(() => new Foo(new Bar(), 'Nooo', 77)),
       bind(Foo88)
         .use(Bar, MyConfig)
         .factory((bar, config) => new Foo(bar, config.url, 88)),
