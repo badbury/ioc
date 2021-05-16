@@ -8,25 +8,31 @@ export abstract class Resolver<T, K = any> implements Definition<Resolver<T, K>>
 }
 
 export abstract class ServiceLocator {
-  abstract get<T extends { prototype: any }>(type: T): T['prototype'];
+  abstract get<T extends { prototype: unknown }>(type: T): T['prototype'];
 }
 
 export class DependencyResolver implements ServiceLocator {
-  private mappings: Map<any, Resolver<any>> = new Map();
-  constructor(definitions: any[]) {
+  private mappings: Map<unknown, Resolver<unknown>> = new Map();
+  constructor(definitions: Definition[]) {
     for (const definition of definitions) {
       if (definition instanceof Resolver) {
         this.mappings.set(definition.key, definition);
       }
     }
   }
-  get<T extends { prototype: any }>(type: T): T['prototype'] {
+  get<T extends { prototype: unknown }>(type: T): T['prototype'] {
     return this.mappings.get(type)?.resolve(this);
   }
 }
 
+type BindReturn<T extends AbstractClass<T>, K extends AbstractClass<K> = T> = T extends Newable
+  ? T extends new () => unknown
+    ? BindResolver<T, K>
+    : NeedsArgumentsResolver<T, K>
+  : AbstractResolver<K>;
+
 export type AbstractResolver<K extends AbstractClass<K>> = {
-  to<T extends ClassLike<T> & K>(type: T): BindResolver<T, K>;
+  to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory(factory: () => K['prototype']): FactoryResolver<K, []>;
 };
@@ -37,14 +43,16 @@ export type NeedsArgumentsResolver<
   P extends TypeParams<T> = TypeParams<T>
 > = {
   with(...args: P): BindResolver<T, K, P>;
+  use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
+  factory(factory: () => K['prototype']): FactoryResolver<K, []>;
 };
 
-type AsConstructors<T extends any[]> = {
+type AsConstructors<T extends unknown[]> = {
   // eslint-disable-next-line @typescript-eslint/ban-types
   [K in keyof T]: (Function & { prototype: T[K] }) | Resolver<T[K]>;
 };
 
-type TypeParams<T extends ClassLike<T>> = T extends new (...args: infer P) => any
+type TypeParams<T extends ClassLike<T>> = T extends new (...args: infer P) => unknown
   ? AsConstructors<P>
   : never;
 
@@ -54,7 +62,7 @@ export class BindResolver<
     P extends TypeParams<T> = TypeParams<T>
   >
   extends Resolver<T, K>
-  implements AbstractResolver<K> {
+  implements AbstractResolver<K>, NeedsArgumentsResolver<T, K, P> {
   protected instance?: InstanceType<T>;
 
   constructor(public key: K, public type: T, private args: P | [] = []) {
@@ -76,8 +84,8 @@ export class BindResolver<
     return new BindResolver(this.key, this.type, args);
   }
 
-  to<N extends ClassLike<N> & K>(type: N): BindResolver<N, K, TypeParams<N>> {
-    return new BindResolver(this.key, type, []);
+  to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K> {
+    return new BindResolver(this.key, type, []) as BindReturn<N, K>;
   }
 
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A> {
@@ -157,13 +165,7 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
   }
 }
 
-export function bind<T extends AbstractClass<T>>(
-  type: T,
-): T extends Newable
-  ? T extends new () => any
-    ? BindResolver<T, T>
-    : NeedsArgumentsResolver<T, T>
-  : AbstractResolver<T> {
+export function bind<T extends AbstractClass<T>>(type: T): BindReturn<T> {
   return new BindResolver(type, type as any) as any;
 }
 

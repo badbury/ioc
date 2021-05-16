@@ -1,6 +1,11 @@
 import { DependencyResolver, ServiceLocator, ValueResolver } from './dependency-injection';
 import { EventBus, EventSink, DynamicEventSink } from './events';
-import { Startup } from './node-js-lifecycle';
+
+export class Shutdown {
+  constructor(public readonly exitCode: number | false, public readonly reason: string) {}
+}
+
+export class Startup {}
 
 export type Definition<T = unknown> = {
   definition: { prototype: T };
@@ -32,7 +37,7 @@ export class Container implements EventSink, ServiceLocator {
     this.events.emit(new Startup());
   }
 
-  get<T extends { prototype: any }>(type: T): T['prototype'] {
+  get<T extends { prototype: unknown }>(type: T): T['prototype'] {
     return this.resolver.get(type);
   }
 

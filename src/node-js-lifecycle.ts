@@ -1,4 +1,4 @@
-import { Definition } from './container';
+import { Definition, Shutdown, Startup } from './container';
 import { bind } from './dependency-injection';
 import { DynamicEventSink, on } from './events';
 import { ListnerFunctions } from './events-dispatchers';
@@ -10,13 +10,6 @@ export class NodeJSLifecycleModule {
     return [
       bind(NodeJSLifecycleModule),
       bind(NodeSignalHandlers).with(DynamicEventSink),
-      // on(Shutdown).dispatchWith(async (shutdown, listeners) => {
-      //   await Promise.all(listeners.map(async (listener) => listener(shutdown)));
-      //   console.log(shutdown.reason, shutdown.exitCode);
-      //   if (shutdown.exitCode !== false) {
-      //     process.exit(shutdown.exitCode);
-      //   }
-      // }),
       on(Shutdown).dispatchWith(NodeJSLifecycleModule, 'shutdownDispatcher'),
       on(Startup)
         .use(NodeSignalHandlers)
@@ -38,12 +31,6 @@ export class NodeJSLifecycleModule {
     }
   }
 }
-
-export class Shutdown {
-  constructor(public readonly exitCode: number | false, public readonly reason: string) {}
-}
-
-export class Startup {}
 
 class NodeSignalHandlers {
   constructor(private emit: DynamicEventSink) {}

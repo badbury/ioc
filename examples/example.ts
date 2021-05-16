@@ -21,19 +21,20 @@ import { GetUsersHttpRoute } from '../../http-server/examples/use-case-with-type
 //   - Core
 //     - di bind(X).with(A, B).to(Y) DONE
 //     - events on(Foo).do(X, 'foo') DONE
-//     - use extra args on(Foo).use(Y).do(X, 'foo') DONE
 //   - Adapters
 //     - http routing http(GetFoo).do(X, 'foo') DONE
 //     - cli routing command(ServeHttp).do(X, 'foo')
-//     - timers every(5).minutes().use(Y).do(X, 'foo') | every('* 1 * * * *').cron().do(X, 'foo')
+//     - timers every(5, 'minutes').use(Y).do(X, 'foo') | every('* 1 * * * *').cron().do(X, 'foo')
 //   - Composers
 //     - interceptors bind(X).intercept('foo', Y, Z)
 //     - decorators bind(X).decorate(Y, Z)
 //     - pipeline bind(X).pipeline().pipe(Y, 'foo').pipe(Z, 'bar') (use Proxy)
 //     - factories bind(X).use(Foo).factory((foo) => foo.getX()) DONE
+//       - still need to handle methods: factory(Foo, 'getX')
 //     - dispatchers on(X).dispatchWith(Y, 'foo') DONE
+//     - use extra args on(Foo).use(Y).do(X, 'foo') DONE
 //     - emit on(X).do(Y, 'foo').emitResponse() DONE
-//     - fallback bind(X).fallback(vaule(console.log.bind(console)))
+//     - fallback bind(X).fallback(value(console.log.bind(console)))
 // - Bind = di | On = events | Http = http | Cli = command | Timer = every
 // - Throw on missing definition
 // - Detect missing dependencies in a module defnition type
@@ -152,10 +153,13 @@ export class MyModule {
       on(Tog).do((tog) => console.log('I got the tog!', tog)),
       bind(GetCompanies),
       bind(GetCompaniesHttpRoute),
-      http(GetCompaniesHttpRoute).do(GetCompanies, 'handle'),
+      http(GetCompaniesHttpRoute)
+        .use(GetCompanies)
+        .do((req, getCompanies) => getCompanies.handle(req)),
       bind(GetUsers),
       bind(GetUsersHttpRoute),
       http(GetUsersHttpRoute).do(GetUsers, 'handle'),
+
       on(Shutdown).do(async (shutdown) => {
         console.log('Prepping shutdown', shutdown);
         await new Promise((resolve) => setTimeout(resolve, 2000));
@@ -165,10 +169,6 @@ export class MyModule {
       // every('minute')
       //   .do(() => new Shutdown(0, '1 minute up'))
       //   .emitResponse(),
-      // http(GetCompaniesHttpRoute).do((req) => {
-      //   console.log(req);
-      //   return [{ name: 'Steve' }];
-      // }),
     ];
   }
 
