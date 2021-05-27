@@ -1,7 +1,7 @@
 import { Definition } from './container';
 import { AbstractClass, AllInstanceType, ClassLike, Newable } from './type-utils';
 
-export abstract class Resolver<T, K = any> implements Definition<Resolver<T, K>> {
+export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
   definition = Resolver;
   constructor(public key: K) {}
   abstract resolve(container: ServiceLocator): T;
@@ -52,7 +52,7 @@ export type NeedsArgumentsResolver<
 type AsConstructors<T extends unknown[]> = {
   [K in keyof T]:  // eslint-disable-next-line @typescript-eslint/ban-types
     | (Function & { prototype: PrimitiveToClass<T[K]> })
-    | Resolver<PrimitiveToClass<T[K]>>;
+    | Resolver<PrimitiveToClass<T[K]>, unknown>;
 };
 
 type PrimitiveToClass<T> = T extends string // eslint-disable-next-line @typescript-eslint/ban-types
@@ -140,13 +140,13 @@ export class FactoryResolver<
   }
 }
 
-export class TransformResolver<T extends ClassLike<T>, N, K> extends Resolver<N> {
+export class TransformResolver<T extends AbstractClass<T>, N, K> extends Resolver<N, K> {
   private instance?: N;
 
   constructor(
     public key: K,
     private next: Resolver<T>,
-    private transform: (t: InstanceType<T>) => N,
+    private transform: (t: T['prototype']) => N,
   ) {
     super(key);
   }
@@ -156,16 +156,16 @@ export class TransformResolver<T extends ClassLike<T>, N, K> extends Resolver<N>
       return this.instance;
     }
     const instance = this.next.resolve(container);
-    return (this.instance = this.transform(instance as any));
+    return (this.instance = this.transform(instance));
   }
 }
 
-export class LookupResolver<T extends ClassLike<T>> extends Resolver<T> {
+export class LookupResolver<T extends AbstractClass<T>> extends Resolver<T, T> {
   resolve(container: ServiceLocator): T {
     return container.get(this.key);
   }
 
-  map<N>(transform: (t: InstanceType<T>) => N): Resolver<N> {
+  map<N>(transform: (t: T['prototype']) => N): Resolver<N, T> {
     return new TransformResolver(this.key, this, transform);
   }
 }
@@ -180,11 +180,13 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
   }
 }
 
-export function bind<T extends AbstractClass<T>>(type: T): BindReturn<T, T> {
-  return new BindResolver(type, type as any) as any;
+export function bind<T extends AbstractClass<T>>(key: T): BindReturn<T, T> {
+  const type = (key as unknown) as new (...args: unknown[]) => T;
+  const bindResolver = new BindResolver(key, type) as unknown;
+  return bindResolver as BindReturn<T, T>;
 }
 
-export function lookup<T extends ClassLike<T>>(type: T): LookupResolver<T> {
+export function lookup<T extends AbstractClass<T>>(type: T): LookupResolver<T> {
   return new LookupResolver(type);
 }
 

@@ -1,7 +1,7 @@
 import { ServiceLocator } from './dependency-injection';
 import { Dispatcher } from './events-dispatchers';
 import { EventListenerBuilder, Listener } from './events-listeners';
-import { ClassLike } from './type-utils';
+import { ClassLike, Newable } from './type-utils';
 
 export abstract class EventSink {
   abstract emit<T>(subject: T): unknown;
@@ -33,6 +33,7 @@ function CallableInstance(this: typeof CallableInstance, property: string) {
   return apply;
 }
 CallableInstance.prototype = Object.create(Function.prototype);
+const CallableClass = (CallableInstance as unknown) as Newable;
 
 const defaultDispatcher: Dispatcher<unknown> = {
   key: null,
@@ -45,7 +46,7 @@ const defaultDispatcher: Dispatcher<unknown> = {
 /* eslint-disable @typescript-eslint/no-empty-interface */
 export interface EventBus extends DynamicEventSink {}
 
-export class EventBus extends (CallableInstance as any) {
+export class EventBus extends CallableClass {
   private listeners: Map<unknown, Listener<unknown>[]> = new Map();
   private dispatchers: Map<unknown, Dispatcher<unknown>> = new Map();
 
@@ -73,11 +74,11 @@ export class EventBus extends (CallableInstance as any) {
         return target.emit(args[0]);
       },
     };
-    return (new Proxy(this, handler) as unknown) as EventBus;
+    return new Proxy(this, handler);
   }
 
   emit<T>(subject: T): unknown {
-    const constructor = (subject as any).constructor as any;
+    const constructor = hasConstructor(subject) && subject.constructor;
     const dispatcher = this.dispatchers.get(constructor) || defaultDispatcher;
     const listeners = this.listeners.get(constructor) || [];
     return dispatcher.handle(subject, this.container, this, listeners);
@@ -86,4 +87,8 @@ export class EventBus extends (CallableInstance as any) {
 
 export function on<T extends ClassLike<T>>(type: T): EventListenerBuilder<T> {
   return new EventListenerBuilder(type);
+}
+
+function hasConstructor<X>(obj: X): obj is X & { constructor: new (...args: unknown[]) => X } {
+  return typeof obj === 'object' && 'constructor' in obj;
 }
