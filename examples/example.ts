@@ -39,6 +39,14 @@ import { GetUsersHttpRoute } from '../../http-server/examples/use-case-with-type
 // - Throw on missing definition
 // - Detect missing dependencies in a module defnition type
 //   - only allow a complete module to be passed to containers
+// - Types of callable
+//   - do((arg) => arg + 1)
+//   - do(Y, 'foo')
+//   - do(MyFunction)
+//     - interface MyFunction { (name: string, age: number): unknown }
+//     - abstract class MyFunction {}
+//     - const myFunction = (name, age, printer) => printer.print(name, age)
+//     - bind(MyFunction).to(myFunction).partial(2, Printer)
 
 // Creational patterns
 // Builder	- use a factory
@@ -77,6 +85,7 @@ class Foo {
   }
 }
 
+abstract class Foo66 extends Foo {}
 abstract class Foo77 extends Foo {}
 abstract class Foo88 extends Foo {}
 abstract class Foo99 extends Foo {}
@@ -119,12 +128,24 @@ class Tig {
 }
 class Tog {}
 
+abstract class ConfigUrl extends String {}
+
+// type ExampleFnType = (tig: Tig) => void;
+interface TigHandler {
+  (tig: Tig): void;
+}
+abstract class TigHandler {}
+
 export class MyModule {
   register(): Definition[] {
     return [
       bind(MyConfig),
       bind(Bar),
       bind(MyModule),
+      bind(ConfigUrl)
+        .use(MyConfig)
+        .factory((config) => config.url),
+      bind(Foo66).to(Foo).with(Bar, ConfigUrl, value(66)),
       bind(Foo99)
         .to(Foo)
         .with(
@@ -139,6 +160,7 @@ export class MyModule {
       bind(Foo).with(Bar, lookup(MyConfig).map(this.getUrl), value(1)),
       bind(Box),
       bind(Trigger).with(DynamicEventSink as any, DynamicEventSink),
+      bind(TigHandler).value((tig) => console.log('MY TIG HAS TOG', tig.makeTog())),
       on(Foo).do(Trigger, 'trigger'),
       on(Bar).do((bar) => console.log('Arrow Bar...', bar)),
       on(Baz).do(Box, 'process'),
@@ -151,6 +173,7 @@ export class MyModule {
         .do((tig) => tig.makeTog())
         .emitResponse(),
       on(Tog).do((tog) => console.log('I got the tog!', tog)),
+      on(Tig).do(TigHandler),
       bind(GetCompanies),
       bind(GetCompaniesHttpRoute),
       http(GetCompaniesHttpRoute)
@@ -189,11 +212,31 @@ const foo99 = c.get(Foo99);
 console.log(foo99);
 console.log(foo);
 c.emit(foo99);
+
 c.emit(new Tig());
-c.get(Tig);
+
+const tigHandler = c.get(TigHandler);
+tigHandler(new Tig());
 
 c.emit(new StartHttpServer(8080));
 // c.emit(new Shutdown(1, 'Because its time'));
+
+// interface MyFunction {
+//   (name: string, age: number): unknown;
+// }
+// abstract class MyFunction {}
+// const myFunction = (name: string, age: number) => console.log(name, age);
+// bind(MyFunction).to(myFunction);
+// bind(MyFunction).to(myFunction).partial(2, Printer);
+// type ClassOrFunction<T> = T extends Newable<T> ? ClassLike<T> : (...args: unknown[]) => unknown;
+
+// type TypeParams<T extends ClassLike<T>, K> = T extends new (...args: infer ClassParams) => unknown
+//   ? AsConstructors<ClassParams>
+//   : T extends new (...args: infer FnParams) => unknown
+//   ? K extends new (...args: infer TypeParams) => unknown
+//     ? AsConstructors<[...TypeParams, ...FnParams]>
+//     : never
+//   : never;
 
 // interface ChainableDuration {
 //   and: DurationFunction;

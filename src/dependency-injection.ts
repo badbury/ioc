@@ -33,6 +33,7 @@ type BindReturn<T extends AbstractClass<T>, K extends AbstractClass<K> = T> = T 
 
 export type AbstractResolver<K extends AbstractClass<K>> = {
   to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K>;
+  value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory(factory: () => K['prototype']): FactoryResolver<K, []>;
 };
@@ -43,14 +44,24 @@ export type NeedsArgumentsResolver<
   P extends TypeParams<T> = TypeParams<T>
 > = {
   with(...args: P): BindResolver<T, K, P>;
+  value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory(factory: () => K['prototype']): FactoryResolver<K, []>;
 };
 
 type AsConstructors<T extends unknown[]> = {
-  // eslint-disable-next-line @typescript-eslint/ban-types
-  [K in keyof T]: (Function & { prototype: T[K] }) | Resolver<T[K]>;
+  [K in keyof T]:  // eslint-disable-next-line @typescript-eslint/ban-types
+    | (Function & { prototype: PrimitiveToClass<T[K]> })
+    | Resolver<PrimitiveToClass<T[K]>>;
 };
+
+type PrimitiveToClass<T> = T extends string // eslint-disable-next-line @typescript-eslint/ban-types
+  ? String
+  : T extends number // eslint-disable-next-line @typescript-eslint/ban-types
+  ? Number
+  : T extends boolean // eslint-disable-next-line @typescript-eslint/ban-types
+  ? Boolean
+  : T;
 
 type TypeParams<T extends ClassLike<T>> = T extends new (...args: infer P) => unknown
   ? AsConstructors<P>
@@ -86,6 +97,10 @@ export class BindResolver<
 
   to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K> {
     return new BindResolver(this.key, type, []) as BindReturn<N, K>;
+  }
+
+  value<N extends K['prototype']>(value: N): ValueResolver<N, K> {
+    return new ValueResolver(this.key, value);
   }
 
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A> {
@@ -165,7 +180,7 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
   }
 }
 
-export function bind<T extends AbstractClass<T>>(type: T): BindReturn<T> {
+export function bind<T extends AbstractClass<T>>(type: T): BindReturn<T, T> {
   return new BindResolver(type, type as any) as any;
 }
 

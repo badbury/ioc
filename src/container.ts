@@ -2,7 +2,11 @@ import { DependencyResolver, ServiceLocator, ValueResolver } from './dependency-
 import { EventBus, EventSink, DynamicEventSink } from './events';
 
 export class Shutdown {
-  constructor(public readonly exitCode: number | false, public readonly reason: string) {}
+  constructor(
+    public readonly exitCode: number | false,
+    public readonly reason: string,
+    public readonly error?: Error,
+  ) {}
 }
 
 export class Startup {}

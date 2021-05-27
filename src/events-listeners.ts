@@ -36,6 +36,7 @@ export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClas
   }
 
   do(target: ListenerFunction<T, A>): Listener<T>;
+  do<F extends AbstractClass<ListenerFunction<T, A>>>(target: F): Listener<T>;
   do<C extends Newable, M extends ListenerMethod<C, T, A>>(target: C, method: M): Listener<T>;
   do<C extends Newable, M extends ListenerMethod<C, T, A>>(
     target: C | ListenerFunction<T, A>,
@@ -113,7 +114,8 @@ export class FunctionEventListener<
 
   handle(subject: InstanceType<T>, container: ServiceLocator, sink: EventSink): unknown {
     const args = this.args.map((key) => container.get(key)) as AllInstanceType<A>;
-    const result = this.handler(subject, ...args);
+    const handler = container.get(this.handler) || this.handler;
+    const result = handler(subject, ...args);
     if (this.shouldEmitResponse) {
       emitUnknownValue(result, sink);
     }

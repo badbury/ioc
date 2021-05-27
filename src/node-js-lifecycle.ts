@@ -57,6 +57,6 @@ class NodeSignalHandlers {
   handleSigInt = () => this.emit(new Shutdown(128 + 2, 'SIGINT'));
   handleSigTerm = () => this.emit(new Shutdown(128 + 15, 'SIGTERM'));
   handleBeforeExit = () => this.emit(new Shutdown(0, 'Program ran to completion'));
-  handleUncaughtException = () => this.emit(new Shutdown(1, 'Uncaught exception'));
-  handleUnhandledRejection = () => this.emit(new Shutdown(1, 'Unhandled rejection'));
+  handleUncaughtException = (err: Error) => this.emit(new Shutdown(1, 'Uncaught exception', err));
+  handleUnhandledRejection = (err: Error) => this.emit(new Shutdown(1, 'Unhandled rejection', err));
 }
