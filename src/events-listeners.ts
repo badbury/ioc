@@ -1,6 +1,6 @@
 import { Definition } from './container';
 import { ServiceLocator } from './dependency-injection';
-import { EventSink } from './events';
+import { emitUnknownValue, EventSink } from './events';
 import {
   ClassEventDispatcher,
   Dispatcher,
@@ -14,7 +14,7 @@ export abstract class Listener<T> implements Definition<Listener<T>> {
   definition = Listener;
   constructor(public key: T) {}
   abstract handle(subject: T, container: ServiceLocator, events: EventSink): unknown;
-  abstract emitResponse(): Listener<T>;
+  abstract emit(): Listener<T>;
 }
 
 type ListenerMethod<
@@ -88,7 +88,7 @@ export class ClassEventListener<
     return result;
   }
 
-  emitResponse(): ClassEventListener<T, A, V, M> {
+  emit(): ClassEventListener<T, A, V, M> {
     return new ClassEventListener(
       this.key,
       this.args,
@@ -122,17 +122,7 @@ export class FunctionEventListener<
     return result;
   }
 
-  emitResponse(): FunctionEventListener<T, A> {
+  emit(): FunctionEventListener<T, A> {
     return new FunctionEventListener(this.key, this.args, this.handler, true);
   }
-}
-
-function emitUnknownValue(value: unknown, sink: EventSink): unknown {
-  if (value instanceof Promise) {
-    return value.then((unwrapped) => emitUnknownValue(unwrapped, sink));
-  }
-  if (Array.isArray(value)) {
-    return value.map((unwrapped) => emitUnknownValue(unwrapped, sink));
-  }
-  return sink.emit(value);
 }

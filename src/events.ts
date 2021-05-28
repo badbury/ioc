@@ -89,6 +89,16 @@ export function on<T extends ClassLike<T>>(type: T): EventListenerBuilder<T> {
   return new EventListenerBuilder(type);
 }
 
+export function emitUnknownValue(value: unknown, sink: EventSink): unknown {
+  if (value instanceof Promise) {
+    return value.then((unwrapped) => emitUnknownValue(unwrapped, sink));
+  }
+  if (Array.isArray(value)) {
+    return value.map((unwrapped) => emitUnknownValue(unwrapped, sink));
+  }
+  return sink.emit(value);
+}
+
 function hasConstructor<X>(obj: X): obj is X & { constructor: new (...args: unknown[]) => X } {
   return typeof obj === 'object' && 'constructor' in obj;
 }

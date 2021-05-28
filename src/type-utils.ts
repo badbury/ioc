@@ -1,6 +1,6 @@
-export type HasPrototype<T> = { prototype: T };
+export type HasPrototype<T = unknown> = { prototype: T };
 // eslint-disable-next-line @typescript-eslint/ban-types
-export type AbstractClass<T extends HasPrototype<T> = any> = Function & {
+export type AbstractClass<T extends HasPrototype = HasPrototype> = Function & {
   prototype: T['prototype'];
 };
 export type Newable<T = any, P extends any[] = any[]> = new (...args: P) => T;
