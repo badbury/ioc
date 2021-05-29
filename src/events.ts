@@ -1,5 +1,6 @@
+import { Callable } from './callable';
 import { ServiceLocator } from './dependency-injection';
-import { Dispatcher } from './events-dispatchers';
+import { Dispatcher, ListnerFunctions } from './events-dispatchers';
 import { EventListenerBuilder, Listener } from './events-listeners';
 import { ClassLike, Newable } from './type-utils';
 
@@ -35,20 +36,22 @@ function CallableInstance(this: typeof CallableInstance, property: string) {
 CallableInstance.prototype = Object.create(Function.prototype);
 const CallableClass = (CallableInstance as unknown) as Newable;
 
-const defaultDispatcher: Dispatcher<unknown> = {
-  key: null,
-  definition: Dispatcher,
-  handle(subject, container, sink, listeners) {
-    return listeners.map((handler) => handler.handle(subject, container, sink));
-  },
-};
+type AnyDispatcher = Dispatcher<
+  new () => unknown,
+  Callable<[unknown, ListnerFunctions<new () => unknown>]>
+>;
+type AnyListener = Listener<new () => unknown, Callable<[unknown]>>;
+
+const defaultDispatcher = on(class {}).dispatchWith((subject, listeners) => {
+  return listeners.map((handler) => handler(subject));
+});
 
 /* eslint-disable @typescript-eslint/no-empty-interface */
 export interface EventBus extends DynamicEventSink {}
 
 export class EventBus extends CallableClass {
-  private listeners: Map<unknown, Listener<unknown>[]> = new Map();
-  private dispatchers: Map<unknown, Dispatcher<unknown>> = new Map();
+  private listeners: Map<unknown, AnyListener[]> = new Map();
+  private dispatchers: Map<unknown, AnyDispatcher> = new Map();
 
   constructor(private container: ServiceLocator, definitions: unknown[]) {
     super('emit');
