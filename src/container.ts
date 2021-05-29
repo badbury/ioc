@@ -1,4 +1,9 @@
-import { DependencyResolver, ServiceLocator, ValueResolver } from './dependency-injection';
+import {
+  DependencyResolver,
+  ResolverSink,
+  ServiceLocator,
+  ValueResolver,
+} from './dependency-injection';
 import { EventBus, EventSink, DynamicEventSink } from './events';
 
 export class Shutdown {
@@ -27,7 +32,7 @@ export class RegisterDefinitions {
 export class Container implements EventSink, ServiceLocator {
   private defintions: Definition[];
   private events: EventBus;
-  private resolver: ServiceLocator;
+  private resolver: DependencyResolver;
 
   constructor(modules: Module[]) {
     this.defintions = modules.map((module) => module.register()).reduce((a, b) => a.concat(b), []);
@@ -37,6 +42,7 @@ export class Container implements EventSink, ServiceLocator {
     this.defintions.push(new ValueResolver(Container, this));
     this.defintions.push(new ValueResolver(ServiceLocator, this));
     this.resolver = new DependencyResolver(this.defintions);
+    this.resolver.register(new ValueResolver(ResolverSink, this.resolver));
     this.events.emit(new RegisterDefinitions(this.defintions, this));
     this.events.emit(new Startup());
   }

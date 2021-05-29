@@ -11,17 +11,26 @@ export abstract class ServiceLocator {
   abstract get<T extends { prototype: unknown }>(type: T): T['prototype'];
 }
 
+export abstract class ResolverSink {
+  abstract register(resolver: Resolver<unknown>): void;
+}
+
 export class DependencyResolver implements ServiceLocator {
   private mappings: Map<unknown, Resolver<unknown>> = new Map();
   constructor(definitions: Definition[]) {
     for (const definition of definitions) {
       if (definition instanceof Resolver) {
-        this.mappings.set(definition.key, definition);
+        this.register(definition);
       }
     }
   }
+
   get<T extends { prototype: unknown }>(type: T): T['prototype'] {
     return this.mappings.get(type)?.resolve(this);
+  }
+
+  register(resolver: Resolver<unknown>): void {
+    this.mappings.set(resolver.key, resolver);
   }
 }
 
