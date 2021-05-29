@@ -36,15 +36,21 @@ function CallableInstance(this: typeof CallableInstance, property: string) {
 CallableInstance.prototype = Object.create(Function.prototype);
 const CallableClass = (CallableInstance as unknown) as Newable;
 
+type EventDispatcher = Pick<AnyDispatcher, 'handle'>;
+
 type AnyDispatcher = Dispatcher<
   new () => unknown,
   Callable<[unknown, ListnerFunctions<new () => unknown>]>
 >;
 type AnyListener = Listener<new () => unknown, Callable<[unknown]>>;
 
-const defaultDispatcher = on(class {}).dispatchWith((subject, listeners) => {
-  return listeners.map((handler) => handler(subject));
-});
+const defaultDispatcher: EventDispatcher = {
+  handle(subject, container, sink, listeners) {
+    return listeners.map((listener) => {
+      return listener.handle(subject, container, sink);
+    });
+  },
+};
 
 /* eslint-disable @typescript-eslint/no-empty-interface */
 export interface EventBus extends DynamicEventSink {}
@@ -82,7 +88,7 @@ export class EventBus extends CallableClass {
 
   emit<T>(subject: T): unknown {
     const constructor = hasConstructor(subject) && subject.constructor;
-    const dispatcher = this.dispatchers.get(constructor) || defaultDispatcher;
+    const dispatcher: EventDispatcher = this.dispatchers.get(constructor) || defaultDispatcher;
     const listeners = this.listeners.get(constructor) || [];
     return dispatcher.handle(subject, this.container, this, listeners);
   }
