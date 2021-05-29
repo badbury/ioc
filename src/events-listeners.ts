@@ -1,4 +1,4 @@
-import { Callable, callable } from './callable';
+import { Callable, callableSetter } from './callable';
 import { Definition } from './container';
 import { ServiceLocator } from './dependency-injection';
 import { EventSink } from './events';
@@ -26,11 +26,13 @@ export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClas
     return new EventListenerBuilder(this.key, args);
   }
 
-  do = callable<[InstanceType<T>], A>(this.args).map(
-    (callable) => new Listener(this.key, callable),
-  );
+  do = callableSetter()
+    .withPassedArgs<[InstanceType<T>]>()
+    .withContainerArgs(this.args)
+    .map((callable) => new Listener(this.key, callable));
 
-  dispatchWith = callable<[InstanceType<T>, ListnerFunctions<InstanceType<T>>], A>(this.args).map(
-    (callable) => new Dispatcher(this.key, callable),
-  );
+  dispatchWith = callableSetter()
+    .withPassedArgs<[InstanceType<T>, ListnerFunctions<InstanceType<T>>]>()
+    .withContainerArgs(this.args)
+    .map((callable) => new Dispatcher(this.key, callable));
 }

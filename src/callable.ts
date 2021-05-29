@@ -18,33 +18,48 @@ export interface CallableSetter<
   ): TResponse;
 }
 
-export function callable<
+class CallableSetterBuilder<
   TPassedArgs extends unknown[],
   TContainerArgs extends AbstractClass[],
   TReturn = unknown
->(
-  args: TContainerArgs,
-): {
-  map: <T>(
-    t: (c: Callable<TPassedArgs, TContainerArgs, TReturn>) => T,
-  ) => CallableSetter<TPassedArgs, TContainerArgs, TReturn, T>;
-} {
-  type TCallable = Callable<TPassedArgs, TContainerArgs, TReturn>;
-  type TCallableFunction = CallableFunction<TPassedArgs, TContainerArgs, TReturn>;
-  return {
-    map: <TMapReturn>(
-      transformer: (c: TCallable) => TMapReturn,
-    ): CallableSetter<TPassedArgs, TContainerArgs, TReturn, TMapReturn> => (
-      target: unknown,
-      method?: unknown,
-    ): TMapReturn => {
-      const callable: TCallable = method
-        ? new ClassCallable(args, target as any, method as any)
-        : new FunctionCallable(args, target as TCallableFunction);
-      return transformer(callable);
-    },
+> {
+  constructor(private args: TContainerArgs = ([] as unknown) as TContainerArgs) {}
+
+  withPassedArgs<T extends unknown[]>(): CallableSetterBuilder<T, TContainerArgs, TReturn> {
+    return new CallableSetterBuilder(this.args);
+  }
+
+  withContainerArgs<T extends AbstractClass[]>(
+    args: T,
+  ): CallableSetterBuilder<TPassedArgs, T, TReturn> {
+    return new CallableSetterBuilder(args);
+  }
+
+  withReturn<T>(): CallableSetterBuilder<TPassedArgs, TContainerArgs, T> {
+    return new CallableSetterBuilder(this.args);
+  }
+
+  get = (): CallableSetter<TPassedArgs, TContainerArgs, TReturn> => {
+    return (target: unknown, method?: unknown): Callable<TPassedArgs, TContainerArgs, TReturn> => {
+      return method
+        ? new ClassCallable(this.args, target as any, method as any)
+        : new FunctionCallable(
+            this.args,
+            target as CallableFunction<TPassedArgs, TContainerArgs, TReturn>,
+          );
+    };
+  };
+
+  map = <TMapReturn>(
+    transformer: (c: Callable<TPassedArgs, TContainerArgs, TReturn>) => TMapReturn,
+  ): CallableSetter<TPassedArgs, TContainerArgs, TReturn, TMapReturn> => {
+    return (target: unknown, method?: unknown): TMapReturn => {
+      return transformer(this.get()(target as any, method as any));
+    };
   };
 }
+
+export const callableSetter = (): CallableSetterBuilder<[], []> => new CallableSetterBuilder();
 
 type CallableFunction<
   TPassedArgs extends unknown[],
@@ -70,27 +85,11 @@ export class CallableBuilder<
     return new CallableBuilder(args);
   }
 
-  do(
-    target: CallableFunction<TPassedArgs, TContainerArgs, TReturn>,
-  ): Callable<TPassedArgs, TContainerArgs, TReturn>;
-  do<T extends AbstractClass<CallableFunction<TPassedArgs, TContainerArgs, TReturn>>>(
-    target: T,
-  ): Callable<TPassedArgs, TContainerArgs, TReturn>;
-  do<T extends Newable, M extends CallableMethod<T, TPassedArgs, TContainerArgs, TReturn>>(
-    target: T,
-    method: M,
-  ): Callable<TPassedArgs, TContainerArgs, TReturn>;
-  do<T extends Newable, M extends CallableMethod<T, TPassedArgs, TContainerArgs, TReturn>>(
-    target: T | CallableFunction<TPassedArgs, TContainerArgs, TReturn>,
-    method?: M,
-  ): Callable<TPassedArgs, TContainerArgs, TReturn> {
-    return method
-      ? new ClassCallable(this.args, target as T, method)
-      : new FunctionCallable(
-          this.args,
-          target as CallableFunction<TPassedArgs, TContainerArgs, TReturn>,
-        );
-  }
+  do = callableSetter()
+    .withPassedArgs<TPassedArgs>()
+    .withContainerArgs(this.args)
+    .withReturn<TReturn>()
+    .get();
 }
 
 export abstract class Callable<
