@@ -22,7 +22,13 @@ export function callable<
   TPassedArgs extends unknown[],
   TContainerArgs extends AbstractClass[],
   TReturn = unknown
->(args: TContainerArgs) {
+>(
+  args: TContainerArgs,
+): {
+  map: <T>(
+    t: (c: Callable<TPassedArgs, TContainerArgs, TReturn>) => T,
+  ) => CallableSetter<TPassedArgs, TContainerArgs, TReturn, T>;
+} {
   type TCallable = Callable<TPassedArgs, TContainerArgs, TReturn>;
   type TCallableFunction = CallableFunction<TPassedArgs, TContainerArgs, TReturn>;
   return {
