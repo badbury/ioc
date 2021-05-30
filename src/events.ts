@@ -105,7 +105,29 @@ export function emitUnknownValue(value: unknown, sink: EventSink): unknown {
   if (Array.isArray(value)) {
     return value.map((unwrapped) => emitUnknownValue(unwrapped, sink));
   }
+  if (Symbol.iterator in Object(value)) {
+    return emitIterable(value as Iterable<unknown>, sink);
+  }
+  if (Symbol.asyncIterator in Object(value)) {
+    return emitAsyncIterable(value as AsyncIterable<unknown>, sink);
+  }
   return sink.emit(value);
+}
+
+function emitIterable(value: Iterable<unknown>, sink: EventSink) {
+  const results = [];
+  for (const item of value) {
+    results.push(emitUnknownValue(item, sink));
+  }
+  return results;
+}
+
+async function emitAsyncIterable(value: AsyncIterable<unknown>, sink: EventSink) {
+  const results = [];
+  for await (const item of value) {
+    results.push(emitUnknownValue(item, sink));
+  }
+  return results;
 }
 
 function hasConstructor<X>(obj: X): obj is X & { constructor: new (...args: unknown[]) => X } {

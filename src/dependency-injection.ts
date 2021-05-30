@@ -1,6 +1,6 @@
 import { Callable, CallableSetter, callableSetter } from './callable';
 import { Definition } from './container';
-import { AbstractClass, AllInstanceType, ClassLike, Newable } from './type-utils';
+import { AbstractClass, ClassLike, Newable } from './type-utils';
 
 export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
   definition = Resolver;
