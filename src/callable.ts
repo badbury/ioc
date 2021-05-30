@@ -97,7 +97,7 @@ export abstract class Callable<
   C extends AbstractClass[] = [],
   R = unknown
 > {
-  abstract handle(passed: P, container: ServiceLocator, sink: EventSink): R;
+  abstract handle(passed: P, container: ServiceLocator, sink?: EventSink): R;
   abstract emit(): Callable<P, C, R>;
 }
 
@@ -117,11 +117,11 @@ export class ClassCallable<
     super();
   }
 
-  handle(passedArgs: TPassedArgs, container: ServiceLocator, sink: EventSink): TReturn {
+  handle(passedArgs: TPassedArgs, container: ServiceLocator, sink?: EventSink): TReturn {
     const args = this.args.map((key) => container.get(key)) as AllInstanceType<TContainerArgs>;
     const handler = container.get(this.listenerClass);
     const result: TReturn = handler[this.listenerMethod](...passedArgs, ...args);
-    if (this.shouldEmitResponse) {
+    if (this.shouldEmitResponse && sink) {
       emitUnknownValue(result, sink);
     }
     return result;
@@ -145,11 +145,11 @@ export class FunctionCallable<
     super();
   }
 
-  handle(passedArgs: TPassedArgs, container: ServiceLocator, sink: EventSink): TReturn {
+  handle(passedArgs: TPassedArgs, container: ServiceLocator, sink?: EventSink): TReturn {
     const args = this.args.map((key) => container.get(key)) as AllInstanceType<TContainerArgs>;
     const handler = container.get(this.handler) || this.handler;
     const result: TReturn = handler(...passedArgs, ...args);
-    if (this.shouldEmitResponse) {
+    if (this.shouldEmitResponse && sink) {
       emitUnknownValue(result, sink);
     }
     return result;

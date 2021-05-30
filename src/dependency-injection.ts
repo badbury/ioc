@@ -1,3 +1,4 @@
+import { Callable, CallableSetter, callableSetter } from './callable';
 import { Definition } from './container';
 import { AbstractClass, AllInstanceType, ClassLike, Newable } from './type-utils';
 
@@ -44,7 +45,7 @@ export type AbstractResolver<K extends AbstractClass<K>> = {
   to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K>;
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
-  factory(factory: () => K['prototype']): FactoryResolver<K, []>;
+  factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
 };
 
 export type NeedsArgumentsResolver<
@@ -55,7 +56,7 @@ export type NeedsArgumentsResolver<
   with(...args: P): BindResolver<T, K, P>;
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
-  factory(factory: () => K['prototype']): FactoryResolver<K, []>;
+  factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
 };
 
 type AsConstructors<T extends unknown[]> = {
@@ -116,36 +117,30 @@ export class BindResolver<
     return new FactoryBuilder(this.key, args);
   }
 
-  factory(factory: () => InstanceType<T>): FactoryResolver<K, []> {
-    return new FactoryResolver(this.key, [], factory);
-  }
+  factory = callableSetter()
+    .withReturn<K['prototype']>()
+    .map((callable) => new FactoryResolver(this.key, callable));
 }
 
 export class FactoryBuilder<T extends AbstractClass<T>, A extends AbstractClass[] = []> {
   constructor(public key: T, public args: A = ([] as unknown) as A) {}
 
-  factory(factory: (...args: AllInstanceType<A>) => T['prototype']): FactoryResolver<T, A> {
-    return new FactoryResolver(this.key, this.args, factory);
-  }
+  factory = callableSetter()
+    .withContainerArgs<A>(this.args)
+    .withReturn<T['prototype']>()
+    .map((callable) => new FactoryResolver(this.key, callable));
 }
 
 export class FactoryResolver<
   T extends AbstractClass<T>,
   P extends AbstractClass[]
 > extends Resolver<T, T> {
-  constructor(
-    public key: T,
-    private args: P,
-    private factory: (...args: AllInstanceType<P>) => T['prototype'],
-  ) {
+  constructor(public key: T, private callable: Callable<[], P, T['prototype']>) {
     super(key);
   }
 
   resolve(container: ServiceLocator): T['prototype'] {
-    const args = (this.args.map((arg) =>
-      arg instanceof Resolver ? arg.resolve(container) : container.get(arg),
-    ) as unknown) as AllInstanceType<P>;
-    return this.factory(...args);
+    return this.callable.handle([], container);
   }
 }
 
