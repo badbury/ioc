@@ -42,7 +42,7 @@ class CallableSetterBuilder<
   get = (): CallableSetter<TPassedArgs, TContainerArgs, TReturn> => {
     return (target: unknown, method?: unknown): Callable<TPassedArgs, TContainerArgs, TReturn> => {
       return method
-        ? new ClassCallable(this.args, target as any, method as any)
+        ? new ClassCallable(this.args, target as never, method as never)
         : new FunctionCallable(
             this.args,
             target as CallableFunction<TPassedArgs, TContainerArgs, TReturn>,
@@ -54,7 +54,7 @@ class CallableSetterBuilder<
     transformer: (c: Callable<TPassedArgs, TContainerArgs, TReturn>) => TMapReturn,
   ): CallableSetter<TPassedArgs, TContainerArgs, TReturn, TMapReturn> => {
     return (target: unknown, method?: unknown): TMapReturn => {
-      return transformer(this.get()(target as any, method as any));
+      return transformer(this.get()(target as never, method as never));
     };
   };
 }
