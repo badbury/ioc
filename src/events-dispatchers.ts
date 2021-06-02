@@ -12,7 +12,7 @@ export class Dispatcher<
   definition = Dispatcher;
   constructor(public key: T, private callable: C) {}
 
-  public handle(
+  public dispatch(
     subject: InstanceType<T>,
     container: ServiceLocator,
     sink: EventSink,
@@ -21,7 +21,7 @@ export class Dispatcher<
     const listenerFunctions: ListnerFunctions<T> = listeners.map((listener) => {
       return (subject: InstanceType<T>): unknown => listener.handle(subject, container, sink);
     });
-    return this.callable.handle([subject, listenerFunctions], container, sink);
+    return this.callable.call([subject, listenerFunctions], container, sink);
   }
 }
 

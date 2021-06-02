@@ -1,11 +1,26 @@
-import { Callable, CallableSetter, callableSetter } from './callable';
+import { callable, Callable, CallableSetter, callableSetter } from './callable';
 import { Definition } from './container';
-import { AbstractClass, ClassLike, Newable } from './type-utils';
+import { AbstractClass, ClassLike, HasMethod, Newable } from './type-utils';
 
 export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
   definition = Resolver;
-  constructor(public key: K) {}
+
+  constructor(public key: K, protected middlewares: ResolverMiddleware<K>[]) {}
+
   abstract resolve(container: ServiceLocator): T;
+
+  public resolveWithMiddleware(container: ServiceLocator): T {
+    const stack = ([...this.middlewares].reverse() as unknown) as ResolverMiddleware<T>[];
+    let next = this.resolve.bind(this, container);
+    for (const middleware of stack) {
+      next = middleware.resolve.bind(middleware, container, next);
+    }
+    return next();
+  }
+}
+
+export abstract class ResolverMiddleware<T> {
+  abstract resolve(container: ServiceLocator, next: () => T): T;
 }
 
 export abstract class ServiceLocator {
@@ -27,7 +42,7 @@ export class DependencyResolver implements ServiceLocator {
   }
 
   get<T extends { prototype: unknown }>(type: T): T['prototype'] {
-    return this.mappings.get(type)?.resolve(this);
+    return this.mappings.get(type)?.resolveWithMiddleware(this);
   }
 
   register(resolver: Resolver<unknown>): void {
@@ -41,11 +56,21 @@ type BindReturn<T extends AbstractClass<T>, K extends AbstractClass<K> = T> = T 
     : NeedsArgumentsResolver<T, K>
   : AbstractResolver<K>;
 
+type CallableFromFn<T extends (...args: unknown[]) => unknown> = Callable<
+  Parameters<T>,
+  [],
+  ReturnType<T>
+>;
+
 export type AbstractResolver<K extends AbstractClass<K>> = {
   to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K>;
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
+  method<N extends keyof K, M extends HasMethod<K, N>>(
+    key: M,
+    fn: ModifyCallable<K[M]>,
+  ): AbstractResolver<K>;
 };
 
 export type NeedsArgumentsResolver<
@@ -57,6 +82,10 @@ export type NeedsArgumentsResolver<
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
+  method<N extends keyof K['prototype'], M extends HasMethod<K['prototype'], N>>(
+    key: M,
+    fn: ModifyCallable<K['prototype'][M]>,
+  ): NeedsArgumentsResolver<T, K, P>;
 };
 
 type AsConstructors<T extends unknown[]> = {
@@ -77,6 +106,38 @@ type TypeParams<T extends ClassLike<T>> = T extends new (...args: infer P) => un
   ? AsConstructors<P>
   : never;
 
+export class SingletonMiddleware<T> implements ResolverMiddleware<T> {
+  private instance: T | undefined;
+
+  resolve(container: ServiceLocator, next: (container: ServiceLocator) => T): T {
+    if (this.instance) {
+      return this.instance;
+    }
+    this.instance = next(container);
+    return this.instance;
+  }
+}
+
+type ModifyCallable<T extends (...args: unknown[]) => unknown> = (
+  method: CallableFromFn<T>,
+) => CallableFromFn<T>;
+
+export class MethodModifierMiddleware<T, N extends keyof T, M extends HasMethod<T, N>>
+  implements ResolverMiddleware<T> {
+  constructor(private key: M, private modifyCallable: ModifyCallable<T[M]>) {}
+
+  resolve(container: ServiceLocator, next: (container: ServiceLocator) => T): T {
+    const instance = next(container);
+
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    const method = instance[this.key] as T[M] & Function;
+    const callableMethod = callable(method.bind(instance)) as CallableFromFn<T[M]>;
+    instance[this.key] = this.modifyCallable(callableMethod).compile(container) as T[M];
+
+    return instance;
+  }
+}
+
 export class BindResolver<
     T extends ClassLike<T>,
     K extends AbstractClass<K> & AbstractClass<T> = T,
@@ -86,81 +147,94 @@ export class BindResolver<
   implements AbstractResolver<K>, NeedsArgumentsResolver<T, K, P> {
   protected instance?: InstanceType<T>;
 
-  constructor(public key: K, public type: T, private args: P | [] = []) {
-    super(key);
+  constructor(
+    public key: K,
+    protected middlewares: ResolverMiddleware<K>[],
+    public type: T,
+    private args: P | [] = [],
+  ) {
+    super(key, middlewares);
   }
 
   resolve(container: ServiceLocator): T {
-    if (this.instance) {
-      return this.instance;
-    }
     const args = [];
     for (const arg of this.args) {
       args.push(arg instanceof Resolver ? arg.resolve(container) : container.get(arg));
     }
-    return (this.instance = new this.type(...args));
+    return new this.type(...args);
   }
 
   with(...args: P): BindResolver<T, K, P> {
-    return new BindResolver(this.key, this.type, args);
+    return new BindResolver(this.key, this.middlewares, this.type, args);
+  }
+
+  method<N extends keyof K, M extends HasMethod<K, N>>(
+    key: M,
+    fn: (method: CallableFromFn<K[M]>) => CallableFromFn<K[M]>,
+  ): this {
+    const middlewares = this.middlewares.concat([new MethodModifierMiddleware(key, fn)]);
+    return new BindResolver(this.key, middlewares, this.type, []) as this;
   }
 
   to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K> {
-    return new BindResolver(this.key, type, []) as BindReturn<N, K>;
+    return new BindResolver(this.key, this.middlewares, type, []) as BindReturn<N, K>;
   }
 
   value<N extends K['prototype']>(value: N): ValueResolver<N, K> {
-    return new ValueResolver(this.key, value);
+    return new ValueResolver(this.key, value, this.middlewares);
   }
 
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A> {
-    return new FactoryBuilder(this.key, args);
+    return new FactoryBuilder(this.key, this.middlewares, args);
   }
 
   factory = callableSetter()
     .withReturn<K['prototype']>()
-    .map((callable) => new FactoryResolver(this.key, callable));
+    .map((callable) => new FactoryResolver(this.key, this.middlewares, callable));
 }
 
 export class FactoryBuilder<T extends AbstractClass<T>, A extends AbstractClass[] = []> {
-  constructor(public key: T, public args: A = ([] as unknown) as A) {}
+  constructor(
+    public key: T,
+    protected middlewares: ResolverMiddleware<T>[],
+    public args: A = ([] as unknown) as A,
+  ) {}
 
   factory = callableSetter()
     .withContainerArgs<A>(this.args)
     .withReturn<T['prototype']>()
-    .map((callable) => new FactoryResolver(this.key, callable));
+    .map((callable) => new FactoryResolver(this.key, this.middlewares, callable));
 }
 
 export class FactoryResolver<
   T extends AbstractClass<T>,
   P extends AbstractClass[]
 > extends Resolver<T, T> {
-  constructor(public key: T, private callable: Callable<[], P, T['prototype']>) {
-    super(key);
+  constructor(
+    public key: T,
+    protected middlewares: ResolverMiddleware<T>[],
+    private callable: Callable<[], P, T['prototype']>,
+  ) {
+    super(key, middlewares);
   }
 
   resolve(container: ServiceLocator): T['prototype'] {
-    return this.callable.handle([], container);
+    return this.callable.call([], container);
   }
 }
 
 export class TransformResolver<T extends AbstractClass<T>, N, K> extends Resolver<N, K> {
-  private instance?: N;
-
   constructor(
     public key: K,
+    protected middlewares: ResolverMiddleware<K>[],
     private next: Resolver<T>,
     private transform: (t: T['prototype']) => N,
   ) {
-    super(key);
+    super(key, middlewares);
   }
 
   resolve(container: ServiceLocator): N {
-    if (this.instance) {
-      return this.instance;
-    }
-    const instance = this.next.resolve(container);
-    return (this.instance = this.transform(instance));
+    return this.transform(this.next.resolveWithMiddleware(container));
   }
 }
 
@@ -170,13 +244,17 @@ export class LookupResolver<T extends AbstractClass<T>> extends Resolver<T, T> {
   }
 
   map<N>(transform: (t: T['prototype']) => N): Resolver<N, T> {
-    return new TransformResolver(this.key, this, transform);
+    return new TransformResolver(this.key, [], this, transform);
   }
 }
 
 export class ValueResolver<T, K> extends Resolver<T, K> {
-  constructor(public key: K, private value: T) {
-    super(key);
+  constructor(
+    public key: K,
+    private value: T,
+    protected middlewares: ResolverMiddleware<K>[] = [],
+  ) {
+    super(key, middlewares);
   }
 
   resolve(): T {
@@ -184,16 +262,34 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
   }
 }
 
+function defaultMiddlewares<T>(): ResolverMiddleware<T>[] {
+  return [new SingletonMiddleware()];
+}
+
 export function bind<T extends AbstractClass<T>>(key: T): BindReturn<T, T> {
   const type = (key as unknown) as new (...args: unknown[]) => T;
-  const bindResolver = new BindResolver(key, type) as unknown;
+  const middlewares = defaultMiddlewares<T>();
+  const bindResolver = new BindResolver(key, middlewares, type) as unknown;
   return bindResolver as BindReturn<T, T>;
 }
 
 export function lookup<T extends AbstractClass<T>>(type: T): LookupResolver<T> {
-  return new LookupResolver(type);
+  const middlewares = defaultMiddlewares<T>();
+  return new LookupResolver(type, middlewares);
 }
 
 export function value<T>(value: T): ValueResolver<T, T> {
-  return new ValueResolver(value, value);
+  const middlewares = defaultMiddlewares<T>();
+  return new ValueResolver(value, value, middlewares);
 }
+
+// export function resolveMany<T extends ({ prototype: unknown } | Resolver<unknown, unknown>)[]>(
+//   container: ServiceLocator,
+//   args: T,
+// ): any {
+//   const resolved = [];
+//   for (const arg of args) {
+//     resolved.push(arg instanceof Resolver ? arg.resolve(container) : container.get(arg));
+//   }
+//   return resolved;
+// }

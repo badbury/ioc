@@ -17,3 +17,9 @@ export type Method<TClass, TArgs, TReturn = unknown> = {
       : never
     : never;
 }[keyof TClass];
+
+export type HasMethod<TClass, TMethod extends keyof TClass> = TClass[TMethod] extends (
+  ...args: any[]
+) => any
+  ? TMethod
+  : never;

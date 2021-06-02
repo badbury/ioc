@@ -36,7 +36,7 @@ function CallableInstance(this: typeof CallableInstance, property: string) {
 CallableInstance.prototype = Object.create(Function.prototype);
 const CallableClass = (CallableInstance as unknown) as Newable;
 
-type EventDispatcher = Pick<AnyDispatcher, 'handle'>;
+type EventDispatcher = Pick<AnyDispatcher, 'dispatch'>;
 
 type AnyDispatcher = Dispatcher<
   new () => unknown,
@@ -45,7 +45,7 @@ type AnyDispatcher = Dispatcher<
 type AnyListener = Listener<new () => unknown, Callable<[unknown]>>;
 
 const defaultDispatcher: EventDispatcher = {
-  handle(subject, container, sink, listeners) {
+  dispatch(subject, container, sink, listeners) {
     return listeners.map((listener) => {
       return listener.handle(subject, container, sink);
     });
@@ -90,7 +90,7 @@ export class EventBus extends CallableClass {
     const constructor = hasConstructor(subject) && subject.constructor;
     const dispatcher: EventDispatcher = this.dispatchers.get(constructor) || defaultDispatcher;
     const listeners = this.listeners.get(constructor) || [];
-    return dispatcher.handle(subject, this.container, this, listeners);
+    return dispatcher.dispatch(subject, this.container, this, listeners);
   }
 }
 

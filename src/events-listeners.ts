@@ -11,7 +11,7 @@ export class Listener<T extends Newable, C extends Callable<[InstanceType<T>]>>
   constructor(public key: T, private callable: C) {}
 
   handle(subject: InstanceType<T>, container: ServiceLocator, events: EventSink): unknown {
-    return this.callable.handle([subject], container, events);
+    return this.callable.call([subject], container, events);
   }
 
   emit(): Listener<T, C> {
