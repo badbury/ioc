@@ -67,9 +67,9 @@ export type AbstractResolver<K extends AbstractClass<K>> = {
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
-  method<N extends keyof K, M extends HasMethod<K, N>>(
+  method<N extends keyof K['prototype'], M extends HasMethod<K['prototype'], N>>(
     key: M,
-    fn: ModifyCallable<K[M]>,
+    fn: ModifyCallable<K['prototype'][M]>,
   ): AbstractResolver<K>;
 };
 
@@ -168,9 +168,9 @@ export class BindResolver<
     return new BindResolver(this.key, this.middlewares, this.type, args);
   }
 
-  method<N extends keyof K, M extends HasMethod<K, N>>(
+  method<N extends keyof K['prototype'], M extends HasMethod<K['prototype'], N>>(
     key: M,
-    fn: (method: CallableFromFn<K[M]>) => CallableFromFn<K[M]>,
+    fn: ModifyCallable<K['prototype'][M]>,
   ): this {
     const middlewares = this.middlewares.concat([new MethodModifierMiddleware(key, fn)]);
     return new BindResolver(this.key, middlewares, this.type, []) as this;
