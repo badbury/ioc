@@ -3,7 +3,9 @@ export type HasPrototype<T = unknown> = { prototype: T };
 export type AbstractClass<T extends HasPrototype = HasPrototype> = Function & {
   prototype: T['prototype'];
 };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyFunction = (...args: any[]) => any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Newable<T = any, P extends any[] = any[]> = new (...args: P) => T;
 export type ClassLike<T extends Newable<T>> = Newable<InstanceType<T>>;
 

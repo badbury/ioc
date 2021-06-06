@@ -1,5 +1,5 @@
 import { Callable } from './callable';
-import { ServiceLocator } from './dependency-injection';
+import { ServiceLocator } from './injector';
 import { Dispatcher, ListnerFunctions } from './events-dispatchers';
 import { EventListenerBuilder, Listener } from './events-listeners';
 import { ClassLike, Newable } from './type-utils';

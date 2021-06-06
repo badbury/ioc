@@ -1,6 +1,6 @@
 export * from './callable';
 export * from './container';
-export * from './dependency-injection';
+export * from './injector';
 export * from './events';
 export * from './logger';
 export * from './node-js-lifecycle';

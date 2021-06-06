@@ -1,5 +1,5 @@
 import { Definition } from './container';
-import { bind } from './dependency-injection';
+import { bind } from './injector';
 import { on } from './events';
 
 export class LoggerModule {

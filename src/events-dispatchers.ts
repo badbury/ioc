@@ -1,6 +1,6 @@
 import { Callable } from './callable';
 import { Definition } from './container';
-import { ServiceLocator } from './dependency-injection';
+import { ServiceLocator } from './injector';
 import { EventSink } from './events';
 import { Listener } from './events-listeners';
 import { ClassLike, Newable } from './type-utils';

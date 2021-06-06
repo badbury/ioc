@@ -29,13 +29,13 @@ export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
 
   protected getMethodModifierMiddleware<N extends keyof K, M extends HasMethod<K, N>>(
     method: M,
-  ): MethodModifierMiddleware<K, M, any> {
+  ): MethodModifierMiddleware<K, N, M> {
     for (const x of this.middlewares) {
       if (x instanceof MethodModifierMiddleware && x.key === method) {
         return x;
       }
     }
-    const middleware = new MethodModifierMiddleware<K, M, any>(method);
+    const middleware = new MethodModifierMiddleware<K, N, M>(method);
     this.middlewares.push(middleware);
     return middleware;
   }
@@ -55,6 +55,7 @@ export abstract class ResolverSink {
 
 export class DependencyResolver implements ServiceLocator {
   private mappings: Map<unknown, Resolver<unknown>> = new Map();
+
   constructor(definitions: Definition[]) {
     for (const definition of definitions) {
       if (definition instanceof Resolver) {
@@ -190,42 +191,42 @@ export class BindResolver<
 
   before: MethodBefore<K, this> = (method, ...callableArgs): this => {
     this.getMethodModifierMiddleware(method).withModifier((callable) =>
-      callable.before(callableArgs[0], callableArgs[1] as any),
+      callable.before(callableArgs[0], callableArgs[1] as never),
     );
     return this;
   };
 
   teeBefore: MethodTeeBefore<K, this> = (method, ...callableArgs): this => {
     this.getMethodModifierMiddleware(method).withModifier((callable) =>
-      callable.teeBefore(callableArgs[0], callableArgs[1] as any),
+      callable.teeBefore(callableArgs[0], callableArgs[1] as never),
     );
     return this;
   };
 
   intercept: MethodIntercept<K, this> = (method, ...callableArgs): this => {
     this.getMethodModifierMiddleware(method).withModifier((callable) =>
-      callable.intercept(callableArgs[0], callableArgs[1] as any),
+      callable.intercept(callableArgs[0], callableArgs[1] as never),
     );
     return this;
   };
 
   teeIntercept: MethodTeeIntercept<K, this> = (method, ...callableArgs): this => {
     this.getMethodModifierMiddleware(method).withModifier((callable) =>
-      callable.teeIntercept(callableArgs[0], callableArgs[1] as any),
+      callable.teeIntercept(callableArgs[0], callableArgs[1] as never),
     );
     return this;
   };
 
   after: MethodAfter<K, this> = (method, ...callableArgs): this => {
     this.getMethodModifierMiddleware(method).withModifier((callable) =>
-      callable.after(callableArgs[0], callableArgs[1] as any),
+      callable.after(callableArgs[0], callableArgs[1] as never),
     );
     return this;
   };
 
   teeAfter: MethodTeeAfter<K, this> = (method, ...callableArgs): this => {
     this.getMethodModifierMiddleware(method).withModifier((callable) =>
-      callable.teeAfter(callableArgs[0], callableArgs[1] as any),
+      callable.teeAfter(callableArgs[0], callableArgs[1] as never),
     );
     return this;
   };

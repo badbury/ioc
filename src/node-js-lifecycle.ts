@@ -1,5 +1,5 @@
 import { Definition, Shutdown, Startup } from './container';
-import { bind } from './dependency-injection';
+import { bind } from './injector';
 import { DynamicEventSink, on } from './events';
 import { ListnerFunctions } from './events-dispatchers';
 

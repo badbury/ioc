@@ -1,4 +1,4 @@
-import { ServiceLocator } from './dependency-injection';
+import { ServiceLocator } from './injector';
 import { emitUnknownValue, EventSink } from './events';
 import { AbstractClass, AllInstanceType, AnyFunction, Method, Newable } from './type-utils';
 
