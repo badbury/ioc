@@ -1,5 +1,14 @@
-import { callable, Callable, CallableSetter, callableSetter } from './callable';
+import { Callable, CallableSetter, callableSetter } from './callable';
 import { Definition } from './container';
+import {
+  MethodAfter,
+  MethodBefore,
+  MethodIntercept,
+  MethodModifierMiddleware,
+  MethodTeeAfter,
+  MethodTeeBefore,
+  MethodTeeIntercept,
+} from './method-modifier';
 import { AbstractClass, ClassLike, HasMethod, Newable } from './type-utils';
 
 export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
@@ -16,6 +25,19 @@ export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
       next = middleware.resolve.bind(middleware, container, next);
     }
     return next();
+  }
+
+  protected getMethodModifierMiddleware<N extends keyof K, M extends HasMethod<K, N>>(
+    method: M,
+  ): MethodModifierMiddleware<K, M, any> {
+    for (const x of this.middlewares) {
+      if (x instanceof MethodModifierMiddleware && x.key === method) {
+        return x;
+      }
+    }
+    const middleware = new MethodModifierMiddleware<K, M, any>(method);
+    this.middlewares.push(middleware);
+    return middleware;
   }
 }
 
@@ -56,21 +78,18 @@ type BindReturn<T extends AbstractClass<T>, K extends AbstractClass<K> = T> = T 
     : NeedsArgumentsResolver<T, K>
   : AbstractResolver<K>;
 
-type CallableFromFn<T extends (...args: unknown[]) => unknown> = Callable<
-  Parameters<T>,
-  [],
-  ReturnType<T>
->;
-
 export type AbstractResolver<K extends AbstractClass<K>> = {
   to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K>;
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
-  method<N extends keyof K['prototype'], M extends HasMethod<K['prototype'], N>>(
-    key: M,
-    fn: ModifyCallable<K['prototype'][M]>,
-  ): AbstractResolver<K>;
+  // Method Modifiers
+  before: MethodBefore<K, AbstractResolver<K>>;
+  teeBefore: MethodTeeBefore<K, AbstractResolver<K>>;
+  intercept: MethodIntercept<K, AbstractResolver<K>>;
+  teeIntercept: MethodTeeIntercept<K, AbstractResolver<K>>;
+  after: MethodAfter<K, AbstractResolver<K>>;
+  teeAfter: MethodTeeAfter<K, AbstractResolver<K>>;
 };
 
 export type NeedsArgumentsResolver<
@@ -82,10 +101,13 @@ export type NeedsArgumentsResolver<
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
-  method<N extends keyof K['prototype'], M extends HasMethod<K['prototype'], N>>(
-    key: M,
-    fn: ModifyCallable<K['prototype'][M]>,
-  ): NeedsArgumentsResolver<T, K, P>;
+  // Method Modifiers
+  before: MethodBefore<K, NeedsArgumentsResolver<T, K, P>>;
+  teeBefore: MethodTeeBefore<K, NeedsArgumentsResolver<T, K, P>>;
+  intercept: MethodIntercept<K, NeedsArgumentsResolver<T, K, P>>;
+  teeIntercept: MethodTeeIntercept<K, NeedsArgumentsResolver<T, K, P>>;
+  after: MethodAfter<K, NeedsArgumentsResolver<T, K, P>>;
+  teeAfter: MethodTeeAfter<K, NeedsArgumentsResolver<T, K, P>>;
 };
 
 type AsConstructors<T extends unknown[]> = {
@@ -115,26 +137,6 @@ export class SingletonMiddleware<T> implements ResolverMiddleware<T> {
     }
     this.instance = next(container);
     return this.instance;
-  }
-}
-
-type ModifyCallable<T extends (...args: unknown[]) => unknown> = (
-  method: CallableFromFn<T>,
-) => CallableFromFn<T>;
-
-export class MethodModifierMiddleware<T, N extends keyof T, M extends HasMethod<T, N>>
-  implements ResolverMiddleware<T> {
-  constructor(private key: M, private modifyCallable: ModifyCallable<T[M]>) {}
-
-  resolve(container: ServiceLocator, next: (container: ServiceLocator) => T): T {
-    const instance = next(container);
-
-    // eslint-disable-next-line @typescript-eslint/ban-types
-    const method = instance[this.key] as T[M] & Function;
-    const callableMethod = callable(method.bind(instance)) as CallableFromFn<T[M]>;
-    instance[this.key] = this.modifyCallable(callableMethod).compile(container) as T[M];
-
-    return instance;
   }
 }
 
@@ -168,14 +170,6 @@ export class BindResolver<
     return new BindResolver(this.key, this.middlewares, this.type, args);
   }
 
-  method<N extends keyof K['prototype'], M extends HasMethod<K['prototype'], N>>(
-    key: M,
-    fn: ModifyCallable<K['prototype'][M]>,
-  ): this {
-    const middlewares = this.middlewares.concat([new MethodModifierMiddleware(key, fn)]);
-    return new BindResolver(this.key, middlewares, this.type, []) as this;
-  }
-
   to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K> {
     return new BindResolver(this.key, this.middlewares, type, []) as BindReturn<N, K>;
   }
@@ -191,6 +185,50 @@ export class BindResolver<
   factory = callableSetter()
     .withReturn<K['prototype']>()
     .map((callable) => new FactoryResolver(this.key, this.middlewares, callable));
+
+  // Method Modifiers
+
+  before: MethodBefore<K, this> = (method, ...callableArgs): this => {
+    this.getMethodModifierMiddleware(method).withModifier((callable) =>
+      callable.before(callableArgs[0], callableArgs[1] as any),
+    );
+    return this;
+  };
+
+  teeBefore: MethodTeeBefore<K, this> = (method, ...callableArgs): this => {
+    this.getMethodModifierMiddleware(method).withModifier((callable) =>
+      callable.teeBefore(callableArgs[0], callableArgs[1] as any),
+    );
+    return this;
+  };
+
+  intercept: MethodIntercept<K, this> = (method, ...callableArgs): this => {
+    this.getMethodModifierMiddleware(method).withModifier((callable) =>
+      callable.intercept(callableArgs[0], callableArgs[1] as any),
+    );
+    return this;
+  };
+
+  teeIntercept: MethodTeeIntercept<K, this> = (method, ...callableArgs): this => {
+    this.getMethodModifierMiddleware(method).withModifier((callable) =>
+      callable.teeIntercept(callableArgs[0], callableArgs[1] as any),
+    );
+    return this;
+  };
+
+  after: MethodAfter<K, this> = (method, ...callableArgs): this => {
+    this.getMethodModifierMiddleware(method).withModifier((callable) =>
+      callable.after(callableArgs[0], callableArgs[1] as any),
+    );
+    return this;
+  };
+
+  teeAfter: MethodTeeAfter<K, this> = (method, ...callableArgs): this => {
+    this.getMethodModifierMiddleware(method).withModifier((callable) =>
+      callable.teeAfter(callableArgs[0], callableArgs[1] as any),
+    );
+    return this;
+  };
 }
 
 export class FactoryBuilder<T extends AbstractClass<T>, A extends AbstractClass[] = []> {

@@ -30,20 +30,19 @@ export class RegisterDefinitions {
 }
 
 export class Container implements EventSink, ServiceLocator {
-  private defintions: Definition[];
   private events: EventBus;
   private resolver: DependencyResolver;
 
   constructor(modules: Module[]) {
-    this.defintions = modules.map((module) => module.register()).reduce((a, b) => a.concat(b), []);
-    this.events = new EventBus(this, this.defintions);
-    this.defintions.push(new ValueResolver(EventSink, this.events));
-    this.defintions.push(new ValueResolver(DynamicEventSink, this.events));
-    this.defintions.push(new ValueResolver(Container, this));
-    this.defintions.push(new ValueResolver(ServiceLocator, this));
-    this.resolver = new DependencyResolver(this.defintions);
+    const defintions = modules.map((module) => module.register()).reduce((a, b) => a.concat(b), []);
+    this.events = new EventBus(this, defintions);
+    defintions.push(new ValueResolver(EventSink, this.events));
+    defintions.push(new ValueResolver(DynamicEventSink, this.events));
+    defintions.push(new ValueResolver(Container, this));
+    defintions.push(new ValueResolver(ServiceLocator, this));
+    this.resolver = new DependencyResolver(defintions);
     this.resolver.register(new ValueResolver(ResolverSink, this.resolver));
-    this.events.emit(new RegisterDefinitions(this.defintions, this));
+    this.events.emit(new RegisterDefinitions(defintions, this));
     this.events.emit(new Startup());
   }
 

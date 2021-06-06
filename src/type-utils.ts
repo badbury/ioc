@@ -3,6 +3,7 @@ export type HasPrototype<T = unknown> = { prototype: T };
 export type AbstractClass<T extends HasPrototype = HasPrototype> = Function & {
   prototype: T['prototype'];
 };
+export type AnyFunction = (...args: any[]) => any;
 export type Newable<T = any, P extends any[] = any[]> = new (...args: P) => T;
 export type ClassLike<T extends Newable<T>> = Newable<InstanceType<T>>;
 
@@ -18,8 +19,6 @@ export type Method<TClass, TArgs, TReturn = unknown> = {
     : never;
 }[keyof TClass];
 
-export type HasMethod<TClass, TMethod extends keyof TClass> = TClass[TMethod] extends (
-  ...args: any[]
-) => any
+export type HasMethod<TClass, TMethod extends keyof TClass> = TClass[TMethod] extends AnyFunction
   ? TMethod
   : never;

@@ -1,16 +1,17 @@
 import { ServiceLocator } from './dependency-injection';
 import { emitUnknownValue, EventSink } from './events';
-import { AbstractClass, AllInstanceType, Method, Newable } from './type-utils';
+import { AbstractClass, AllInstanceType, AnyFunction, Method, Newable } from './type-utils';
 
-type NotActualFunction<T> = T extends (...args: any[]) => any ? never : T;
+// If we don't use any then literal functions become too permissive
+type NotActualFunction<T> = T extends AnyFunction ? never : T;
 
-type CallableInputFunction<
+export type CallableInputFunction<
   TPassedArgs extends unknown[],
   TContainerArgs extends AbstractClass[],
   TReturn
 > = [fn: CallableFunction<TPassedArgs, TContainerArgs, TReturn>];
 
-type CallableInputAbstract<
+export type CallableInputAbstract<
   TPassedArgs extends unknown[],
   TContainerArgs extends AbstractClass[],
   TReturn,
@@ -23,15 +24,15 @@ type CallableInputAbstract<
     : never,
 ];
 
-type CallableInputMethod<
+export type CallableInputMethod<
   TPassedArgs extends unknown[],
   TContainerArgs extends AbstractClass[],
   TReturn,
   T,
   M
 > = [
-  target: T extends { prototype: any } ? T : never,
-  method: T extends { prototype: any }
+  target: T extends { prototype: unknown } ? T : never,
+  method: T extends { prototype: unknown }
     ? M extends keyof T['prototype']
       ? T['prototype'][M] extends CallableFunction<TPassedArgs, TContainerArgs, TReturn>
         ? M
@@ -40,7 +41,7 @@ type CallableInputMethod<
     : never,
 ];
 
-type CallableInput<
+export type CallableInput<
   TPassedArgs extends unknown[],
   TContainerArgs extends AbstractClass[],
   TReturn,
@@ -90,8 +91,8 @@ class CallableSetterBuilder<
       ...input: A & CallableInput<TPassedArgs, TContainerArgs, TReturn, A>
     ): Callable<TPassedArgs, TContainerArgs, TReturn> => {
       if (input[1]) {
-        const subject = input[1] as Newable;
-        const method = input[1] as CallableMethod<any, TPassedArgs, TContainerArgs, TReturn>;
+        const subject = input[0] as Newable;
+        const method = input[1] as CallableMethod<Newable, TPassedArgs, TContainerArgs, TReturn>;
         return new ClassCallable(this.args, subject, method);
       }
       return new FunctionCallable(

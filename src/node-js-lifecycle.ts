@@ -4,8 +4,6 @@ import { DynamicEventSink, on } from './events';
 import { ListnerFunctions } from './events-dispatchers';
 
 export class NodeJSLifecycleModule {
-  constructor() {}
-
   register(): Definition[] {
     return [
       bind(NodeJSLifecycleModule),
