@@ -27,8 +27,8 @@ export class LoggerModule {
 }
 
 export class Log {
-  constructor(public message: string, ...args: unknown[]) {
-    args.forEach((object) => Object.assign(this, object));
+  constructor(public message: string, context: Record<string, unknown>) {
+    Object.assign(this, context);
   }
 }
 

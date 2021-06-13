@@ -1,15 +1,6 @@
 import { bind, DependencyResolver, ResolverSink, ServiceLocator } from './injector';
 import { EventBus, EventSink, DynamicEventSink } from './events';
-
-export class Shutdown {
-  constructor(
-    public readonly exitCode: number | false,
-    public readonly reason: string,
-    public readonly error?: Error,
-  ) {}
-}
-
-export class Startup {}
+import { LifecycleModule, Shutdown, Startup } from './lifecycle';
 
 export type Definition<T = unknown> = {
   definition: { prototype: T };
@@ -29,6 +20,7 @@ export class Container implements EventSink, ServiceLocator {
   private resolver: DependencyResolver;
 
   constructor(modules: Module[]) {
+    modules.unshift(new LifecycleModule());
     const defintions = modules.map((module) => module.register()).reduce((a, b) => a.concat(b), []);
     this.events = new EventBus(this, defintions);
     defintions.push(bind(EventSink).value(this.events));
@@ -38,7 +30,6 @@ export class Container implements EventSink, ServiceLocator {
     this.resolver = new DependencyResolver(defintions);
     this.resolver.register(bind(ResolverSink).value(this.resolver));
     this.events.emit(new RegisterDefinitions(defintions, this));
-    this.events.emit(new Startup());
   }
 
   get<T extends { prototype: unknown }>(type: T): T['prototype'] {
@@ -47,5 +38,17 @@ export class Container implements EventSink, ServiceLocator {
 
   emit<T>(subject: T): unknown {
     return this.events.emit(subject);
+  }
+
+  async startup(): Promise<unknown> {
+    return this.events.emit(new Startup());
+  }
+
+  async shutdown(
+    reason: string,
+    exitCode: number | false = false,
+    error?: Error,
+  ): Promise<unknown> {
+    return this.events.emit(new Shutdown(reason, exitCode, error));
   }
 }

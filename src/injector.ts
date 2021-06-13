@@ -1,4 +1,4 @@
-import { Callable, CallableSetter, callableSetter } from './callable';
+import { Callable, CallableSetter, callableSetter } from './callable/callable';
 import { Definition } from './container';
 import {
   MethodAfter,
@@ -8,7 +8,7 @@ import {
   MethodTeeAfter,
   MethodTeeBefore,
   MethodTeeIntercept,
-} from './method-modifier';
+} from './callable/method-modifier';
 import { AbstractClass, ClassLike, HasMethod, Newable } from './type-utils';
 
 export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {

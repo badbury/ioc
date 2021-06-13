@@ -1,6 +1,6 @@
-import { ServiceLocator } from './injector';
-import { emitUnknownValue, EventSink } from './events';
-import { AbstractClass, AllInstanceType, AnyFunction, Method, Newable } from './type-utils';
+import { ServiceLocator } from '../injector';
+import { emitUnknownValue, EventSink } from '../events';
+import { AbstractClass, AllInstanceType, AnyFunction, Method, Newable } from '../type-utils';
 
 // If we don't use any then literal functions become too permissive
 type NotActualFunction<T> = T extends AnyFunction ? never : T;

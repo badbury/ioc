@@ -1,37 +1,31 @@
-import { Definition, Shutdown, Startup } from './container';
+import { Definition } from './container';
 import { bind } from './injector';
 import { DynamicEventSink, on } from './events';
-import { ListnerFunctions } from './events-dispatchers';
+import { Startup, Shutdown, Exit } from './lifecycle';
 
 export class NodeJSLifecycleModule {
   register(): Definition[] {
     return [
-      bind(NodeJSLifecycleModule),
-      bind(NodeSignalHandlers).with(DynamicEventSink),
-      on(Shutdown).dispatchWith(NodeJSLifecycleModule, 'shutdownDispatcher'),
+      bind(NodeJsHandlers).with(DynamicEventSink),
+      on(Exit).do(NodeJsHandlers, 'exit'),
       on(Startup)
-        .use(NodeSignalHandlers)
+        .use(NodeJsHandlers)
         .do((_, nsh) => nsh.bind()),
       on(Shutdown)
-        .use(NodeSignalHandlers)
+        .use(NodeJsHandlers)
         .do((_, nsh) => nsh.unbind()),
     ];
   }
-
-  async shutdownDispatcher(
-    shutdown: Shutdown,
-    listeners: ListnerFunctions<typeof Shutdown>,
-  ): Promise<void> {
-    await Promise.all(listeners.map(async (listener) => listener(shutdown)));
-    console.log(shutdown.reason, shutdown.exitCode);
-    if (shutdown.exitCode !== false) {
-      process.exit(shutdown.exitCode);
-    }
-  }
 }
 
-class NodeSignalHandlers {
+class NodeJsHandlers {
   constructor(private emit: DynamicEventSink) {}
+
+  async exit(exit: Exit): Promise<void> {
+    if (exit.shutdown.exitCode !== false) {
+      process.exit(exit.shutdown.exitCode);
+    }
+  }
 
   bind() {
     process.on('SIGHUP', this.handleSigHup);
@@ -51,10 +45,10 @@ class NodeSignalHandlers {
     process.removeListener('unhandledRejection', this.handleUnhandledRejection);
   }
 
-  handleSigHup = () => this.emit(new Shutdown(128 + 1, 'SIGHUP'));
-  handleSigInt = () => this.emit(new Shutdown(128 + 2, 'SIGINT'));
-  handleSigTerm = () => this.emit(new Shutdown(128 + 15, 'SIGTERM'));
-  handleBeforeExit = () => this.emit(new Shutdown(0, 'Program ran to completion'));
-  handleUncaughtException = (err: Error) => this.emit(new Shutdown(1, 'Uncaught exception', err));
-  handleUnhandledRejection = (err: Error) => this.emit(new Shutdown(1, 'Unhandled rejection', err));
+  handleSigHup = () => this.emit(new Shutdown('SIGHUP', 128 + 1));
+  handleSigInt = () => this.emit(new Shutdown('SIGINT', 128 + 2));
+  handleSigTerm = () => this.emit(new Shutdown('SIGTERM', 128 + 15));
+  handleBeforeExit = () => this.emit(new Shutdown('Program ran to completion', 0));
+  handleUncaughtException = (err: Error) => this.emit(new Shutdown('Uncaught exception', 1, err));
+  handleUnhandledRejection = (err: Error) => this.emit(new Shutdown('Unhandled rejection', 1, err));
 }

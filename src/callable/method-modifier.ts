@@ -6,8 +6,8 @@ import {
   CallableInputAbstract,
   CallableInputMethod,
 } from './callable';
-import { ResolverMiddleware, ServiceLocator } from './injector';
-import { AbstractClass, AnyFunction, HasMethod } from './type-utils';
+import { ResolverMiddleware, ServiceLocator } from '../injector';
+import { AbstractClass, AnyFunction, HasMethod } from '../type-utils';
 
 type ModifyCallable<T extends (...args: unknown[]) => unknown> = (
   method: CallableFromFn<T>,

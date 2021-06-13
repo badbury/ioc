@@ -1,8 +1,7 @@
-import { Callable } from './callable';
+import { Callable, callableSetter } from './callable/callable';
+import { Definition } from './container';
 import { ServiceLocator } from './injector';
-import { Dispatcher, ListnerFunctions } from './events-dispatchers';
-import { EventListenerBuilder, Listener } from './events-listeners';
-import { ClassLike, Newable } from './type-utils';
+import { AbstractClass, ClassLike, Newable } from './type-utils';
 
 export abstract class EventSink {
   abstract emit<T>(subject: T): unknown;
@@ -46,9 +45,11 @@ type AnyListener = Listener<new () => unknown, Callable<[unknown]>>;
 
 const defaultDispatcher: EventDispatcher = {
   dispatch(subject, container, sink, listeners) {
-    return listeners.map((listener) => {
-      return listener.handle(subject, container, sink);
-    });
+    return Promise.all(
+      listeners.map((listener) => {
+        return listener.handle(subject, container, sink);
+      }),
+    );
   },
 };
 
@@ -92,6 +93,60 @@ export class EventBus extends CallableClass {
     const listeners = this.listeners.get(constructor) || [];
     return dispatcher.dispatch(subject, this.container, this, listeners);
   }
+}
+
+export class Dispatcher<
+  T extends Newable,
+  C extends Callable<[InstanceType<T>, ListnerFunctions<T>]>
+> implements Definition<Dispatcher<T, C>> {
+  definition = Dispatcher;
+  constructor(public key: T, private callable: C) {}
+
+  public dispatch(
+    subject: InstanceType<T>,
+    container: ServiceLocator,
+    sink: EventSink,
+    listeners: Listener<InstanceType<T>, Callable<[InstanceType<T>]>>[],
+  ): unknown {
+    const listenerFunctions: ListnerFunctions<T> = listeners.map((listener) => {
+      return (subject: InstanceType<T>): unknown => listener.handle(subject, container, sink);
+    });
+    return this.callable.call([subject, listenerFunctions], container, sink);
+  }
+}
+
+export type ListnerFunctions<T extends ClassLike<T>> = ((subject: InstanceType<T>) => unknown)[];
+
+export class Listener<T extends Newable, C extends Callable<[InstanceType<T>]>>
+  implements Definition<Listener<T, C>> {
+  definition = Listener;
+  constructor(public key: T, private callable: C) {}
+
+  handle(subject: InstanceType<T>, container: ServiceLocator, events: EventSink): unknown {
+    return this.callable.call([subject], container, events);
+  }
+
+  emit(): Listener<T, C> {
+    return new Listener(this.key, this.callable.emit() as C);
+  }
+}
+
+export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClass[] = []> {
+  constructor(public key: T, public args: A = ([] as unknown) as A) {}
+
+  use<P extends AbstractClass[]>(...args: P): EventListenerBuilder<T, P> {
+    return new EventListenerBuilder(this.key, args);
+  }
+
+  do = callableSetter()
+    .withPassedArgs<[InstanceType<T>]>()
+    .withContainerArgs(this.args)
+    .map((callable) => new Listener(this.key, callable));
+
+  dispatchWith = callableSetter()
+    .withPassedArgs<[InstanceType<T>, ListnerFunctions<InstanceType<T>>]>()
+    .withContainerArgs(this.args)
+    .map((callable) => new Dispatcher(this.key, callable));
 }
 
 export function on<T extends ClassLike<T>>(type: T): EventListenerBuilder<T> {
