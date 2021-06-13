@@ -11,6 +11,16 @@ import {
 } from './callable/method-modifier';
 import { AbstractClass, ClassLike, HasMethod, Newable } from './type-utils';
 
+export class CouldNotResolve extends Error {
+  public subjectName: unknown;
+  public asString: unknown;
+  constructor(public subject: { prototype: unknown; name?: string; toString?: () => string }) {
+    super();
+    this.asString = subject.toString ? subject.toString() : '';
+    this.subjectName = subject.name;
+  }
+}
+
 export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
   definition = Resolver;
 
@@ -65,7 +75,11 @@ export class DependencyResolver implements ServiceLocator {
   }
 
   get<T extends { prototype: unknown }>(type: T): T['prototype'] {
-    return this.mappings.get(type)?.resolveWithMiddleware(this);
+    const resolver = this.mappings.get(type);
+    if (!resolver) {
+      throw new CouldNotResolve(type);
+    }
+    return resolver.resolveWithMiddleware(this);
   }
 
   register(resolver: Resolver<unknown>): void {

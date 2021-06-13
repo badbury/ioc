@@ -283,7 +283,8 @@ export class FunctionCallable<
 
   call(passedArgs: TPassedArgs, container: ServiceLocator, sink?: EventSink): TReturn {
     const args = this.args.map((key) => container.get(key)) as AllInstanceType<TContainerArgs>;
-    const handler = container.get(this.handler) || this.handler;
+    const isClass = this.handler.toString().substring(0, 5) === 'class';
+    const handler = isClass ? container.get(this.handler) : this.handler;
     const result: TReturn = handler(...passedArgs, ...args);
     if (this.shouldEmitResponse && sink) {
       emitUnknownValue(result, sink);
