@@ -49,16 +49,20 @@ import { bind, on, value, Definition } from '@badbury/ioc';
 export class CarModule {
   register(): Definition[] {
     return [
+    
       // Bind abstract classes to concrete classes
       bind(Car).to(Honda).with(value(50), Calculator),
+      
       // Compose and decorate classes with extra behaviour
       bind(Calculator).teeIntercept('add', (a, b, next) => {
         console.log(`${a} + ${b} = ${next()}`);
       }),
+      
       // Route events to handles, using values defined in the container
       on(Accelerate)
         .use(Car)
         .do((accelerate, car) => car.speedUp(accelerate.speed)),
+        
     ];
   }
 }
