@@ -3,6 +3,8 @@ import { bind } from './injector';
 import { DynamicEventSink, on } from './events';
 import { Startup, Shutdown, Exit } from './lifecycle';
 
+// @TODO consider for split into a separate package
+
 export class NodeJSLifecycleModule {
   register(): Definition[] {
     return [

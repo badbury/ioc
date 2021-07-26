@@ -1,6 +1,7 @@
 import { Definition } from './container';
 import { bind } from './injector';
-import { on } from './events';
+
+// @TODO consider for split into a separate package
 
 export class LoggerModule {
   register(): Definition[] {
@@ -21,14 +22,7 @@ export class LoggerModule {
       bind(LogDebug)
         .use(Logger)
         .factory((logger) => (object) => logger('debug', object)),
-      on(Log).do(LogInfo),
     ];
-  }
-}
-
-export class Log {
-  constructor(public message: string, context: Record<string, unknown>) {
-    Object.assign(this, context);
   }
 }
 
@@ -53,7 +47,7 @@ function makeLogger(logLimit: string) {
     if (!shouldLog(logLimit, level)) {
       return;
     }
-    const logger = process.env.NODE_ENV === 'development' ? devLogger : prodLogger;
+    const logger = process.env.NODE_ENV === 'development' ? consoleLogger : jsonLogger;
     logger(level, object);
   };
 }
@@ -68,7 +62,7 @@ function shouldLog(logLimit: string, logLevel: string) {
   return levelIndex <= limitIndex;
 }
 
-function prodLogger(level: string, object: { constructor: { name: string } }) {
+function jsonLogger(level: string, object: { constructor: { name: string } }) {
   const line = JSON.stringify({
     type: object.constructor.name,
     level,
@@ -78,6 +72,6 @@ function prodLogger(level: string, object: { constructor: { name: string } }) {
   process.stderr.write(`${line}\n`);
 }
 
-function devLogger(level: string, object: { constructor: { name: string } }) {
+function consoleLogger(level: string, object: { constructor: { name: string } }) {
   console.log(`[${level}]`, object);
 }

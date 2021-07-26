@@ -4,6 +4,18 @@ import { DynamicEventSink, on } from './events';
 import { ListnerFunctions } from './events';
 import { ClassLike } from './type-utils';
 
+export class LifecycleModule {
+  register(): Definition[] {
+    return [
+      bind(LifecycleDispatcher).with(DynamicEventSink),
+      on(Startup).dispatchWith(LifecycleDispatcher, 'startupDispatcher'),
+      on(Shutdown).dispatchWith(LifecycleDispatcher, 'shutdownDispatcher'),
+    ];
+  }
+}
+
+/****** Startup Events  ******/
+
 // The app is starting up, let modules do any early checks and connect to backing services
 export class Startup {}
 
@@ -12,6 +24,8 @@ export class Connect {}
 
 // The application is ready for normal operations
 export class Ready {}
+
+/****** Shutdown Events  ******/
 
 // Register the intent to shutdown and do any early cleanup
 export class Shutdown {
@@ -33,16 +47,6 @@ export class CleanUp {
 // Exit the application
 export class Exit {
   constructor(public readonly shutdown: Shutdown) {}
-}
-
-export class LifecycleModule {
-  register(): Definition[] {
-    return [
-      bind(LifecycleDispatcher).with(DynamicEventSink),
-      on(Startup).dispatchWith(LifecycleDispatcher, 'startupDispatcher'),
-      on(Shutdown).dispatchWith(LifecycleDispatcher, 'shutdownDispatcher'),
-    ];
-  }
 }
 
 class LifecycleDispatcher {
