@@ -10,12 +10,8 @@ export class NodeJSLifecycleModule {
     return [
       bind(NodeJsHandlers).with(DynamicEventSink),
       on(Exit).do(NodeJsHandlers, 'exit'),
-      on(Startup)
-        .use(NodeJsHandlers)
-        .do((_, nsh) => nsh.bind()),
-      on(Shutdown)
-        .use(NodeJsHandlers)
-        .do((_, nsh) => nsh.unbind()),
+      on(Startup).do(NodeJsHandlers, 'bind'),
+      on(Shutdown).do(NodeJsHandlers, 'unbind'),
     ];
   }
 }
