@@ -2,6 +2,7 @@ import { Definition } from './container';
 import { bind } from './injector';
 import { DynamicEventSink, on } from './events';
 import { Startup, Shutdown, Exit } from './lifecycle';
+import { ListnerFunctions } from '.';
 
 // @TODO consider for split into a separate package
 
@@ -9,7 +10,7 @@ export class NodeJSLifecycleModule {
   register(): Definition[] {
     return [
       bind(NodeJsHandlers).with(DynamicEventSink),
-      on(Exit).do(NodeJsHandlers, 'exit'),
+      on(Exit).dispatchWith(NodeJsHandlers, 'exit'),
       on(Startup).do(NodeJsHandlers, 'bind'),
       on(Shutdown).do(NodeJsHandlers, 'unbind'),
     ];
@@ -19,7 +20,8 @@ export class NodeJSLifecycleModule {
 class NodeJsHandlers {
   constructor(private emit: DynamicEventSink) {}
 
-  async exit(exit: Exit): Promise<void> {
+  async exit(exit: Exit, listeners: ListnerFunctions<typeof Exit>): Promise<void> {
+    await Promise.all(listeners.map(async (listener) => listener(exit)));
     if (exit.shutdown.exitCode !== false) {
       process.exit(exit.shutdown.exitCode);
     }

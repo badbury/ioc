@@ -19,9 +19,6 @@ export class LifecycleModule {
 // The app is starting up, let modules do any early checks and connect to backing services
 export class Startup {}
 
-// Connect any IO like http listeners and timers
-export class Connect {}
-
 // The application is ready for normal operations
 export class Ready {}
 
@@ -36,14 +33,6 @@ export class Shutdown {
   ) {}
 }
 
-// Disconnect any IO like http listeners and timers
-export class Disconnect {
-  constructor(public readonly shutdown: Shutdown) {}
-}
-// After all connections have been drained do some last second cleanup before exit
-export class CleanUp {
-  constructor(public readonly shutdown: Shutdown) {}
-}
 // Exit the application
 export class Exit {
   constructor(public readonly shutdown: Shutdown) {}
@@ -57,7 +46,6 @@ class LifecycleDispatcher {
     listeners: ListnerFunctions<typeof Startup>,
   ): Promise<void> {
     await this.awaitAllListeners(startup, listeners);
-    await this.emit(new Connect());
     await this.emit(new Ready());
   }
 
@@ -66,8 +54,6 @@ class LifecycleDispatcher {
     listeners: ListnerFunctions<typeof Shutdown>,
   ): Promise<void> {
     await this.awaitAllListeners(shutdown, listeners);
-    await this.emit(new Disconnect(shutdown));
-    await this.emit(new CleanUp(shutdown));
     await this.emit(new Exit(shutdown));
   }
 

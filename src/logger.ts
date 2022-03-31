@@ -41,6 +41,7 @@ export abstract class LogError extends LogFunction {}
 export abstract class LogWarn extends LogFunction {}
 export abstract class LogInfo extends LogFunction {}
 export abstract class LogDebug extends LogFunction {}
+export abstract class LogTrace extends LogFunction {}
 
 function makeLogger(logLimit: string) {
   return (level: string, object: { constructor: { name: string } }) => {
@@ -53,7 +54,7 @@ function makeLogger(logLimit: string) {
 }
 
 function shouldLog(logLimit: string, logLevel: string) {
-  const levels = ['error', 'warn', 'info', 'debug'];
+  const levels = ['error', 'warn', 'info', 'debug', 'trace'];
   const limitIndex = levels.indexOf(logLimit);
   const levelIndex = levels.indexOf(logLevel);
   if (limitIndex === -1 || levelIndex === -1) {
