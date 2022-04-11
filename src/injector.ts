@@ -94,7 +94,7 @@ type BindReturn<T extends AbstractClass<T>, K extends AbstractClass<K> = T> = T 
   : AbstractResolver<K>;
 
 export type AbstractResolver<K extends AbstractClass<K>> = {
-  to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K>;
+  to<N extends ClassLike & K>(type: N): BindReturn<N, K>;
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
@@ -108,7 +108,7 @@ export type AbstractResolver<K extends AbstractClass<K>> = {
 };
 
 export type NeedsArgumentsResolver<
-  T extends ClassLike<T>,
+  T extends ClassLike,
   K extends AbstractClass<K> & AbstractClass<T> = T,
   P extends TypeParams<T> = TypeParams<T>
 > = {
@@ -139,7 +139,7 @@ type PrimitiveToClass<T> = T extends string // eslint-disable-next-line @typescr
   ? Boolean
   : T;
 
-type TypeParams<T extends ClassLike<T>> = T extends new (...args: infer P) => unknown
+type TypeParams<T extends ClassLike> = T extends new (...args: infer P) => unknown
   ? AsConstructors<P>
   : never;
 
@@ -156,7 +156,7 @@ export class SingletonMiddleware<T> implements ResolverMiddleware<T> {
 }
 
 export class BindResolver<
-    T extends ClassLike<T>,
+    T extends ClassLike,
     K extends AbstractClass<K> & AbstractClass<T> = T,
     P extends TypeParams<T> = TypeParams<T>
   >
@@ -173,19 +173,20 @@ export class BindResolver<
     super(key, middlewares);
   }
 
-  resolve(container: ServiceLocator): T {
-    const args = [];
+  resolve(container: ServiceLocator): InstanceType<T> {
+    const args = [] as unknown[];
     for (const arg of this.args) {
       args.push(arg instanceof Resolver ? arg.resolve(container) : container.get(arg));
     }
-    return new this.type(...args);
+    const type = this.type;
+    return new type(...(args as never[])) as InstanceType<T>;
   }
 
   with(...args: P): BindResolver<T, K, P> {
     return new BindResolver(this.key, this.middlewares, this.type, args);
   }
 
-  to<N extends ClassLike<N> & K>(type: N): BindReturn<N, K> {
+  to<N extends ClassLike & K>(type: N): BindReturn<N, K> {
     return new BindResolver(this.key, this.middlewares, type, []) as BindReturn<N, K>;
   }
 

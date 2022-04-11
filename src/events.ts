@@ -115,7 +115,7 @@ export class Dispatcher<
   }
 }
 
-export type ListnerFunctions<T extends ClassLike<T>> = ((subject: InstanceType<T>) => unknown)[];
+export type ListnerFunctions<T extends ClassLike> = ((subject: InstanceType<T>) => unknown)[];
 
 export class Listener<T extends Newable, C extends Callable<[InstanceType<T>]>>
   implements Definition<Listener<T, C>> {
@@ -131,7 +131,7 @@ export class Listener<T extends Newable, C extends Callable<[InstanceType<T>]>>
   }
 }
 
-export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClass[] = []> {
+export class EventListenerBuilder<T extends ClassLike, A extends AbstractClass[] = []> {
   constructor(public key: T, public args: A = ([] as unknown) as A) {}
 
   use<P extends AbstractClass[]>(...args: P): EventListenerBuilder<T, P> {
@@ -149,7 +149,7 @@ export class EventListenerBuilder<T extends ClassLike<T>, A extends AbstractClas
     .map((callable) => new Dispatcher(this.key, callable));
 }
 
-export function on<T extends ClassLike<T>>(type: T): EventListenerBuilder<T> {
+export function on<T extends ClassLike>(type: T): EventListenerBuilder<T> {
   return new EventListenerBuilder(type);
 }
 
@@ -187,4 +187,39 @@ async function emitAsyncIterable(value: AsyncIterable<unknown>, sink: EventSink)
 
 function hasConstructor<X>(obj: X): obj is X & { constructor: new (...args: unknown[]) => X } {
   return typeof obj === 'object' && 'constructor' in obj;
+}
+
+export type ConstructorOrFactory<I, T> = (new (arg: I) => T) | { make(arg: I): T };
+
+export interface SingleEvent<I, T> {
+  (param: I): unknown;
+  on(listener: (param: T) => unknown): void;
+  off(listener: (param: T) => unknown): void;
+}
+
+export function event<I, T>(constructor: ConstructorOrFactory<I, T>): SingleEvent<I, T> {
+  const factory =
+    'make' in constructor
+      ? constructor.make.bind(constructor)
+      : (param: I): T => new constructor(param);
+
+  const emitter = function (param: I): unknown {
+    const subject = factory(param);
+    for (const listener of emitter.listeners) {
+      listener(subject);
+    }
+    return;
+  };
+
+  type Listener = (param: T) => unknown;
+  emitter.listeners = [] as Listener[];
+  emitter.on = (listener: Listener) => emitter.listeners.push(listener);
+  emitter.off = (listener: Listener) => {
+    const index = emitter.listeners.indexOf(listener);
+    if (index > -1) {
+      emitter.listeners.splice(index, 1);
+    }
+  };
+
+  return emitter;
 }

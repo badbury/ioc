@@ -57,7 +57,7 @@ class LifecycleDispatcher {
     await this.emit(new Exit(shutdown));
   }
 
-  async awaitAllListeners<T extends ClassLike<T>>(
+  async awaitAllListeners<T extends ClassLike>(
     subject: InstanceType<T>,
     listeners: ListnerFunctions<T>,
   ): Promise<void> {

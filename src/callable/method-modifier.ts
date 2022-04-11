@@ -13,8 +13,11 @@ type ModifyCallable<T extends (...args: unknown[]) => unknown> = (
   method: CallableFromFn<T>,
 ) => CallableFromFn<T>;
 
-export class MethodModifierMiddleware<T, N extends keyof T, M extends HasMethod<T, N>>
-  implements ResolverMiddleware<T> {
+export class MethodModifierMiddleware<
+  T extends Record<string, any>,
+  N extends keyof T,
+  M extends HasMethod<T, N>
+> implements ResolverMiddleware<T> {
   private modifiers: ModifyCallable<T[M]>[] = [];
 
   constructor(public key: M) {}
@@ -24,7 +27,7 @@ export class MethodModifierMiddleware<T, N extends keyof T, M extends HasMethod<
 
     // eslint-disable-next-line @typescript-eslint/ban-types
     const method = instance[this.key] as T[M] & Function;
-    let callableMethod = callable(method.bind(instance)) as CallableFromFn<T[M]>;
+    let callableMethod = (callable(method.bind(instance)) as unknown) as CallableFromFn<T[M]>;
     for (const modifier of this.modifiers) {
       callableMethod = modifier(callableMethod);
     }

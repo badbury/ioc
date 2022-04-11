@@ -7,7 +7,7 @@ export type AbstractClass<T extends HasPrototype = HasPrototype> = Function & {
 export type AnyFunction = (...args: any[]) => any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Newable<T = any, P extends any[] = any[]> = new (...args: P) => T;
-export type ClassLike<T extends Newable<T>> = Newable<InstanceType<T>>;
+export type ClassLike = new (...args: never[]) => unknown;
 
 export type AllInstanceType<T extends AbstractClass[]> = {
   [K in keyof T]: T[K] extends { prototype: infer V } ? V : never;
