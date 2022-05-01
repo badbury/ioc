@@ -10,6 +10,19 @@ import {
   MethodTeeIntercept,
 } from './callable/method-modifier';
 import { AbstractClass, ClassLike, HasMethod, Newable } from './type-utils';
+import { EventSink, SingleEventStream } from './events';
+
+export type KeysMatching<T, V> = T extends number
+  ? never
+  : T extends string
+  ? never
+  : T extends boolean
+  ? never
+  : T extends null
+  ? never
+  : T extends undefined
+  ? never
+  : { [K in keyof T]-?: T[K] extends V ? K : never }[keyof T];
 
 export class CouldNotResolve extends Error {
   public subjectName: unknown;
@@ -24,7 +37,11 @@ export class CouldNotResolve extends Error {
 export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
   definition = Resolver;
 
-  constructor(public key: K, protected middlewares: ResolverMiddleware<K>[]) {}
+  constructor(
+    public key: K,
+    protected middlewares: ResolverMiddleware<K>[],
+    protected eventStreamProps: unknown[], // KeysMatching<K, SingleEventStream>[],
+  ) {}
 
   abstract resolve(container: ServiceLocator): T;
 
@@ -34,7 +51,22 @@ export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
     for (const middleware of stack) {
       next = middleware.resolve.bind(middleware, container, next);
     }
-    return next();
+    const subject = next();
+    this.bindEventStreams(subject, container);
+    return subject;
+  }
+
+  protected bindEventStreams(subject: T, container: ServiceLocator): void {
+    if (this.eventStreamProps.length === 0) {
+      return;
+    }
+    const sink = container.get(EventSink);
+    for (const eventStreamProp of this.eventStreamProps) {
+      const eventStream = (subject[
+        (eventStreamProp as unknown) as KeysMatching<T, SingleEventStream>
+      ] as unknown) as SingleEventStream;
+      eventStream.on(sink.emit.bind(sink));
+    }
   }
 
   protected getMethodModifierMiddleware<N extends keyof K, M extends HasMethod<K, N>>(
@@ -93,12 +125,17 @@ type BindReturn<T extends AbstractClass<T>, K extends AbstractClass<K> = T> = T 
     : NeedsArgumentsResolver<T, K>
   : AbstractResolver<K>;
 
+export type ListenTo<T extends AbstractClass, TReturn> = (
+  ...methods: KeysMatching<T['prototype'], SingleEventStream>[]
+) => TReturn;
+
 export type AbstractResolver<K extends AbstractClass<K>> = {
   to<N extends ClassLike & K>(type: N): BindReturn<N, K>;
   value<N extends K['prototype']>(value: N): ValueResolver<N, K>;
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
   // Method Modifiers
+  listenTo: ListenTo<K, AbstractResolver<K>>;
   before: MethodBefore<K, AbstractResolver<K>>;
   teeBefore: MethodTeeBefore<K, AbstractResolver<K>>;
   intercept: MethodIntercept<K, AbstractResolver<K>>;
@@ -117,6 +154,7 @@ export type NeedsArgumentsResolver<
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A>;
   factory: CallableSetter<[], [], K['prototype'], FactoryResolver<K, []>>;
   // Method Modifiers
+  listenTo: ListenTo<K, NeedsArgumentsResolver<T, K, P>>;
   before: MethodBefore<K, NeedsArgumentsResolver<T, K, P>>;
   teeBefore: MethodTeeBefore<K, NeedsArgumentsResolver<T, K, P>>;
   intercept: MethodIntercept<K, NeedsArgumentsResolver<T, K, P>>;
@@ -167,10 +205,11 @@ export class BindResolver<
   constructor(
     public key: K,
     protected middlewares: ResolverMiddleware<K>[],
+    protected eventStreamProps: KeysMatching<K, SingleEventStream>[],
     public type: T,
     private args: P | [] = [],
   ) {
-    super(key, middlewares);
+    super(key, middlewares, eventStreamProps);
   }
 
   resolve(container: ServiceLocator): InstanceType<T> {
@@ -183,26 +222,40 @@ export class BindResolver<
   }
 
   with(...args: P): BindResolver<T, K, P> {
-    return new BindResolver(this.key, this.middlewares, this.type, args);
+    return new BindResolver(this.key, this.middlewares, this.eventStreamProps, this.type, args);
   }
 
   to<N extends ClassLike & K>(type: N): BindReturn<N, K> {
-    return new BindResolver(this.key, this.middlewares, type, []) as BindReturn<N, K>;
+    return new BindResolver(
+      this.key,
+      this.middlewares,
+      this.eventStreamProps,
+      type,
+      [],
+    ) as BindReturn<N, K>;
   }
 
   value<N extends K['prototype']>(value: N): ValueResolver<N, K> {
-    return new ValueResolver(this.key, value, this.middlewares);
+    return new ValueResolver(this.key, value, this.middlewares, this.eventStreamProps);
   }
 
   use<A extends AbstractClass[]>(...args: A): FactoryBuilder<K, A> {
-    return new FactoryBuilder(this.key, this.middlewares, args);
+    return new FactoryBuilder(this.key, this.middlewares, this.eventStreamProps, args);
   }
 
   factory = callableSetter()
     .withReturn<K['prototype']>()
-    .map((callable) => new FactoryResolver(this.key, this.middlewares, callable));
+    .map(
+      (callable) =>
+        new FactoryResolver(this.key, this.middlewares, this.eventStreamProps, callable),
+    );
 
   // Method Modifiers
+
+  listenTo: ListenTo<K, this> = (...methods): this => {
+    this.eventStreamProps.push(...methods);
+    return this;
+  };
 
   before: MethodBefore<K, this> = (method, ...callableArgs): this => {
     this.getMethodModifierMiddleware(method).withModifier((callable) =>
@@ -251,13 +304,17 @@ export class FactoryBuilder<T extends AbstractClass<T>, A extends AbstractClass[
   constructor(
     public key: T,
     protected middlewares: ResolverMiddleware<T>[],
+    protected eventStreamProps: KeysMatching<T, SingleEventStream>[],
     public args: A = ([] as unknown) as A,
   ) {}
 
   factory = callableSetter()
     .withContainerArgs<A>(this.args)
     .withReturn<T['prototype']>()
-    .map((callable) => new FactoryResolver(this.key, this.middlewares, callable));
+    .map(
+      (callable) =>
+        new FactoryResolver(this.key, this.middlewares, this.eventStreamProps, callable),
+    );
 }
 
 export class FactoryResolver<
@@ -267,9 +324,10 @@ export class FactoryResolver<
   constructor(
     public key: T,
     protected middlewares: ResolverMiddleware<T>[],
+    protected eventStreamProps: KeysMatching<T, SingleEventStream>[],
     private callable: Callable<[], P, T['prototype']>,
   ) {
-    super(key, middlewares);
+    super(key, middlewares, eventStreamProps);
   }
 
   resolve(container: ServiceLocator): T['prototype'] {
@@ -281,10 +339,11 @@ export class TransformResolver<T extends AbstractClass<T>, N, K> extends Resolve
   constructor(
     public key: K,
     protected middlewares: ResolverMiddleware<K>[],
+    protected eventStreamProps: KeysMatching<K, SingleEventStream>[],
     private next: Resolver<T>,
     private transform: (t: T['prototype']) => N,
   ) {
-    super(key, middlewares);
+    super(key, middlewares, eventStreamProps);
   }
 
   resolve(container: ServiceLocator): N {
@@ -298,7 +357,7 @@ export class LookupResolver<T extends AbstractClass<T>> extends Resolver<T, T> {
   }
 
   map<N>(transform: (t: T['prototype']) => N): Resolver<N, T> {
-    return new TransformResolver(this.key, [], this, transform);
+    return new TransformResolver(this.key, [], [], this, transform);
   }
 }
 
@@ -307,8 +366,9 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
     public key: K,
     private value: T,
     protected middlewares: ResolverMiddleware<K>[] = [],
+    protected eventStreamProps: KeysMatching<K, SingleEventStream>[] = [],
   ) {
-    super(key, middlewares);
+    super(key, middlewares, eventStreamProps);
   }
 
   resolve(): T {
@@ -323,13 +383,13 @@ function defaultMiddlewares<T>(): ResolverMiddleware<T>[] {
 export function bind<T extends AbstractClass<T>>(key: T): BindReturn<T, T> {
   const type = (key as unknown) as new (...args: unknown[]) => T;
   const middlewares = defaultMiddlewares<T>();
-  const bindResolver = new BindResolver(key, middlewares, type) as unknown;
+  const bindResolver = new BindResolver(key, middlewares, [], type) as unknown;
   return bindResolver as BindReturn<T, T>;
 }
 
 export function lookup<T extends AbstractClass<T>>(type: T): LookupResolver<T> {
   const middlewares = defaultMiddlewares<T>();
-  return new LookupResolver(type, middlewares);
+  return new LookupResolver(type, middlewares, []);
 }
 
 export function value<T>(value: T): ValueResolver<T, T> {

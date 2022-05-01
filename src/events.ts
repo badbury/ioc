@@ -191,11 +191,16 @@ function hasConstructor<X>(obj: X): obj is X & { constructor: new (...args: unkn
 
 export type ConstructorOrFactory<I, T> = (new (arg: I) => T) | { make(arg: I): T };
 
-export interface SingleEvent<I, T> {
-  (param: I): unknown;
-  on(listener: (param: T) => unknown): void;
-  off(listener: (param: T) => unknown): void;
+export interface SingleEventStream<T = unknown> {
+  on(listener: SingleEventListener<T>): void;
+  off(listener: SingleEventListener<T>): void;
 }
+
+export interface SingleEvent<I = unknown, T = unknown> extends SingleEventStream<T> {
+  (param: I): unknown;
+}
+
+type SingleEventListener<T = unknown> = (param: T) => unknown;
 
 export function event<I, T>(constructor: ConstructorOrFactory<I, T>): SingleEvent<I, T> {
   const factory =
@@ -211,10 +216,9 @@ export function event<I, T>(constructor: ConstructorOrFactory<I, T>): SingleEven
     return;
   };
 
-  type Listener = (param: T) => unknown;
-  emitter.listeners = [] as Listener[];
-  emitter.on = (listener: Listener) => emitter.listeners.push(listener);
-  emitter.off = (listener: Listener) => {
+  emitter.listeners = [] as SingleEventListener<T>[];
+  emitter.on = (listener: SingleEventListener<T>) => emitter.listeners.push(listener);
+  emitter.off = (listener: SingleEventListener<T>) => {
     const index = emitter.listeners.indexOf(listener);
     if (index > -1) {
       emitter.listeners.splice(index, 1);
@@ -222,4 +226,33 @@ export function event<I, T>(constructor: ConstructorOrFactory<I, T>): SingleEven
   };
 
   return emitter;
+}
+
+type ConstructorToEvent<
+  T extends ConstructorOrFactory<unknown, unknown>
+> = T extends ConstructorOrFactory<infer A, infer B> ? SingleEvent<A, B> : never;
+
+type ConstructorsToEvents<T extends Record<string, ConstructorOrFactory<unknown, unknown>>> = {
+  [P in keyof T]: ConstructorToEvent<T[P]>;
+};
+
+export function events<T extends Record<string, ConstructorOrFactory<unknown, unknown>>>(
+  constructorsObject: T,
+): ConstructorsToEvents<T> & SingleEventStream {
+  const eventsObject: ConstructorsToEvents<T> = Object.entries(constructorsObject).reduce(
+    (object, [key, constructor]) => ({ ...object, [key]: event(constructor) }),
+    {},
+  ) as ConstructorsToEvents<T>;
+  const eventsArray = Object.values(eventsObject);
+  return {
+    ...eventsObject,
+    on(listener: SingleEventListener) {
+      return eventsArray.forEach((singleEvent) => {
+        singleEvent.on(listener);
+      });
+    },
+    off(listener: SingleEventListener) {
+      return eventsArray.forEach((singleEvent) => singleEvent.off(listener));
+    },
+  };
 }
