@@ -1,4 +1,4 @@
-import { Definition } from './container';
+import { Definition } from './contracts';
 import { bind } from './injector';
 
 // @TODO consider for split into a separate package
@@ -22,6 +22,9 @@ export class LoggerModule {
       bind(LogDebug)
         .use(Logger)
         .factory((logger) => (object) => logger('debug', object)),
+      bind(LogTrace)
+        .use(Logger)
+        .factory((logger) => (object) => logger('trace', object)),
     ];
   }
 }

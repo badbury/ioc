@@ -1,11 +1,7 @@
-import { bind, DependencyResolver, ResolverSink, ServiceLocator } from './injector';
-import { EventBus, EventSink, DynamicEventSink } from './events';
+import { bind, DependencyResolver } from './injector';
+import { EventBus } from './events';
 import { LifecycleModule, Shutdown, Startup } from './lifecycle';
-
-export type Definition<T = unknown> = {
-  definition: { prototype: T };
-  constructor: { prototype: T };
-};
+import { Definition, ServiceLocator, ResolverSink, EventSink, DynamicEventSink } from './contracts';
 
 export interface Module {
   register(): Definition[];

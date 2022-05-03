@@ -1,22 +1,14 @@
 import { Callable, callableSetter } from './callable/callable';
-import { Definition } from './container';
-import { ServiceLocator } from './injector';
+import {
+  Definition,
+  Event,
+  ServiceLocator,
+  EventListener,
+  EventStream,
+  EventSink,
+  DynamicEventSink,
+} from './contracts';
 import { AbstractClass, ClassLike, Newable } from './type-utils';
-
-export abstract class EventSink {
-  abstract emit<T>(subject: T): unknown;
-}
-
-export interface DynamicEventSink {
-  [method: string]: <T>(param: T) => unknown;
-  process: <T>(param: T) => unknown;
-  dispatch: <T>(param: T) => unknown;
-  do: <T>(param: T) => unknown;
-  notify: <T>(param: T) => unknown;
-  add: <T>(param: T) => unknown;
-  <T>(param: T): unknown;
-}
-export abstract class DynamicEventSink extends EventSink {}
 
 function CallableInstance(this: typeof CallableInstance, property: string) {
   const func = this.constructor.prototype[property];
@@ -191,18 +183,7 @@ function hasConstructor<X>(obj: X): obj is X & { constructor: new (...args: unkn
 
 export type ConstructorOrFactory<I, T> = (new (arg: I) => T) | { make(arg: I): T };
 
-export interface SingleEventStream<T = unknown> {
-  on(listener: SingleEventListener<T>): void;
-  off(listener: SingleEventListener<T>): void;
-}
-
-export interface SingleEvent<I = unknown, T = unknown> extends SingleEventStream<T> {
-  (param: I): unknown;
-}
-
-type SingleEventListener<T = unknown> = (param: T) => unknown;
-
-export function event<I, T>(constructor: ConstructorOrFactory<I, T>): SingleEvent<I, T> {
+export function event<I, T>(constructor: ConstructorOrFactory<I, T>): Event<I, T> {
   const factory =
     'make' in constructor
       ? constructor.make.bind(constructor)
@@ -216,9 +197,9 @@ export function event<I, T>(constructor: ConstructorOrFactory<I, T>): SingleEven
     return;
   };
 
-  emitter.listeners = [] as SingleEventListener<T>[];
-  emitter.on = (listener: SingleEventListener<T>) => emitter.listeners.push(listener);
-  emitter.off = (listener: SingleEventListener<T>) => {
+  emitter.listeners = [] as EventListener<T>[];
+  emitter.on = (listener: EventListener<T>) => emitter.listeners.push(listener);
+  emitter.off = (listener: EventListener<T>) => {
     const index = emitter.listeners.indexOf(listener);
     if (index > -1) {
       emitter.listeners.splice(index, 1);
@@ -230,7 +211,7 @@ export function event<I, T>(constructor: ConstructorOrFactory<I, T>): SingleEven
 
 type ConstructorToEvent<
   T extends ConstructorOrFactory<unknown, unknown>
-> = T extends ConstructorOrFactory<infer A, infer B> ? SingleEvent<A, B> : never;
+> = T extends ConstructorOrFactory<infer A, infer B> ? Event<A, B> : never;
 
 type ConstructorsToEvents<T extends Record<string, ConstructorOrFactory<unknown, unknown>>> = {
   [P in keyof T]: ConstructorToEvent<T[P]>;
@@ -238,7 +219,7 @@ type ConstructorsToEvents<T extends Record<string, ConstructorOrFactory<unknown,
 
 export function events<T extends Record<string, ConstructorOrFactory<unknown, unknown>>>(
   constructorsObject: T,
-): ConstructorsToEvents<T> & SingleEventStream {
+): ConstructorsToEvents<T> & EventStream {
   const eventsObject: ConstructorsToEvents<T> = Object.entries(constructorsObject).reduce(
     (object, [key, constructor]) => ({ ...object, [key]: event(constructor) }),
     {},
@@ -246,12 +227,12 @@ export function events<T extends Record<string, ConstructorOrFactory<unknown, un
   const eventsArray = Object.values(eventsObject);
   return {
     ...eventsObject,
-    on(listener: SingleEventListener) {
+    on(listener: EventListener) {
       return eventsArray.forEach((singleEvent) => {
         singleEvent.on(listener);
       });
     },
-    off(listener: SingleEventListener) {
+    off(listener: EventListener) {
       return eventsArray.forEach((singleEvent) => singleEvent.off(listener));
     },
   };

@@ -1,5 +1,6 @@
 export * from './callable/callable';
 export * from './container';
+export * from './contracts';
 export * from './injector';
 export * from './events';
 export * from './logger';

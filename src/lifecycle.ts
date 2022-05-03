@@ -1,6 +1,6 @@
-import { Definition } from './container';
+import { Definition, DynamicEventSink } from './contracts';
 import { bind } from './injector';
-import { DynamicEventSink, on } from './events';
+import { on } from './events';
 import { ListnerFunctions } from './events';
 import { ClassLike } from './type-utils';
 
@@ -14,7 +14,7 @@ export class LifecycleModule {
   }
 }
 
-/****** Startup Events  ******/
+/****** Startup Events ******/
 
 // The app is starting up, let modules do any early checks and connect to backing services
 export class Startup {}
@@ -22,7 +22,7 @@ export class Startup {}
 // The application is ready for normal operations
 export class Ready {}
 
-/****** Shutdown Events  ******/
+/****** Shutdown Events ******/
 
 // Register the intent to shutdown and do any early cleanup
 export class Shutdown {

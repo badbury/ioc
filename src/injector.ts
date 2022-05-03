@@ -1,5 +1,12 @@
 import { Callable, CallableSetter, callableSetter } from './callable/callable';
-import { Definition } from './container';
+import {
+  Definition,
+  ResolverMiddleware,
+  ResolverSink,
+  ServiceLocator,
+  EventStream,
+  EventSink,
+} from './contracts';
 import {
   MethodAfter,
   MethodBefore,
@@ -10,7 +17,6 @@ import {
   MethodTeeIntercept,
 } from './callable/method-modifier';
 import { AbstractClass, ClassLike, HasMethod, Newable } from './type-utils';
-import { EventSink, SingleEventStream } from './events';
 
 export type KeysMatching<T, V> = T extends number
   ? never
@@ -40,7 +46,7 @@ export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
   constructor(
     public key: K,
     protected middlewares: ResolverMiddleware<K>[],
-    protected eventStreamProps: unknown[], // KeysMatching<K, SingleEventStream>[],
+    protected eventStreamProps: unknown[], // KeysMatching<K, EventStream>[],
   ) {}
 
   abstract resolve(container: ServiceLocator): T;
@@ -63,8 +69,8 @@ export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
     const sink = container.get(EventSink);
     for (const eventStreamProp of this.eventStreamProps) {
       const eventStream = (subject[
-        (eventStreamProp as unknown) as KeysMatching<T, SingleEventStream>
-      ] as unknown) as SingleEventStream;
+        (eventStreamProp as unknown) as KeysMatching<T, EventStream>
+      ] as unknown) as EventStream;
       eventStream.on(sink.emit.bind(sink));
     }
   }
@@ -83,19 +89,7 @@ export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
   }
 }
 
-export abstract class ResolverMiddleware<T> {
-  abstract resolve(container: ServiceLocator, next: () => T): T;
-}
-
-export abstract class ServiceLocator {
-  abstract get<T extends { prototype: unknown }>(type: T): T['prototype'];
-}
-
-export abstract class ResolverSink {
-  abstract register(resolver: Resolver<unknown>): void;
-}
-
-export class DependencyResolver implements ServiceLocator {
+export class DependencyResolver implements ServiceLocator, ResolverSink {
   private mappings: Map<unknown, Resolver<unknown>> = new Map();
 
   constructor(definitions: Definition[]) {
@@ -126,7 +120,7 @@ type BindReturn<T extends AbstractClass<T>, K extends AbstractClass<K> = T> = T 
   : AbstractResolver<K>;
 
 export type ListenTo<T extends AbstractClass, TReturn> = (
-  ...methods: KeysMatching<T['prototype'], SingleEventStream>[]
+  ...methods: KeysMatching<T['prototype'], EventStream>[]
 ) => TReturn;
 
 export type AbstractResolver<K extends AbstractClass<K>> = {
@@ -205,7 +199,7 @@ export class BindResolver<
   constructor(
     public key: K,
     protected middlewares: ResolverMiddleware<K>[],
-    protected eventStreamProps: KeysMatching<K, SingleEventStream>[],
+    protected eventStreamProps: KeysMatching<K, EventStream>[],
     public type: T,
     private args: P | [] = [],
   ) {
@@ -304,7 +298,7 @@ export class FactoryBuilder<T extends AbstractClass<T>, A extends AbstractClass[
   constructor(
     public key: T,
     protected middlewares: ResolverMiddleware<T>[],
-    protected eventStreamProps: KeysMatching<T, SingleEventStream>[],
+    protected eventStreamProps: KeysMatching<T, EventStream>[],
     public args: A = ([] as unknown) as A,
   ) {}
 
@@ -324,7 +318,7 @@ export class FactoryResolver<
   constructor(
     public key: T,
     protected middlewares: ResolverMiddleware<T>[],
-    protected eventStreamProps: KeysMatching<T, SingleEventStream>[],
+    protected eventStreamProps: KeysMatching<T, EventStream>[],
     private callable: Callable<[], P, T['prototype']>,
   ) {
     super(key, middlewares, eventStreamProps);
@@ -339,7 +333,7 @@ export class TransformResolver<T extends AbstractClass<T>, N, K> extends Resolve
   constructor(
     public key: K,
     protected middlewares: ResolverMiddleware<K>[],
-    protected eventStreamProps: KeysMatching<K, SingleEventStream>[],
+    protected eventStreamProps: KeysMatching<K, EventStream>[],
     private next: Resolver<T>,
     private transform: (t: T['prototype']) => N,
   ) {
@@ -366,7 +360,7 @@ export class ValueResolver<T, K> extends Resolver<T, K> {
     public key: K,
     private value: T,
     protected middlewares: ResolverMiddleware<K>[] = [],
-    protected eventStreamProps: KeysMatching<K, SingleEventStream>[] = [],
+    protected eventStreamProps: KeysMatching<K, EventStream>[] = [],
   ) {
     super(key, middlewares, eventStreamProps);
   }

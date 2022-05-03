@@ -1,6 +1,6 @@
-import { Definition } from './container';
+import { Definition, DynamicEventSink } from './contracts';
 import { bind } from './injector';
-import { DynamicEventSink, on } from './events';
+import { on } from './events';
 import { Startup, Shutdown, Exit } from './lifecycle';
 import { ListnerFunctions } from '.';
 

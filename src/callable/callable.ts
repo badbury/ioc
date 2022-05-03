@@ -1,5 +1,5 @@
-import { ServiceLocator } from '../injector';
-import { emitUnknownValue, EventSink } from '../events';
+import { ServiceLocator, EventSink } from '../contracts';
+import { emitUnknownValue } from '../events';
 import { AbstractClass, AllInstanceType, AnyFunction, Method, Newable } from '../type-utils';
 
 // If we don't use any then literal functions become too permissive
