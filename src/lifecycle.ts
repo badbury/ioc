@@ -1,7 +1,6 @@
 import { Definition, DynamicEventSink } from './contracts';
 import { bind } from './injector';
-import { on } from './events';
-import { ListnerFunctions } from './events';
+import { on, ListnerFunctions } from './events';
 import { ClassLike } from './type-utils';
 
 export class LifecycleModule {

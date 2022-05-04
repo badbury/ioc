@@ -1,8 +1,7 @@
 import { Definition, DynamicEventSink } from './contracts';
 import { bind } from './injector';
-import { on } from './events';
+import { on, ListnerFunctions } from './events';
 import { Startup, Shutdown, Exit } from './lifecycle';
-import { ListnerFunctions } from '.';
 
 // @TODO consider for split into a separate package
 
