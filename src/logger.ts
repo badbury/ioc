@@ -1,7 +1,19 @@
-import { Definition } from './contracts';
+import {
+  Definition,
+  Log,
+  LogDebug,
+  LogError,
+  LogFunction,
+  Logger,
+  LogInfo,
+  LogLevel,
+  LogLevelOption,
+  LogPresenter,
+  LogSubject,
+  LogTrace,
+  LogWarn,
+} from './contracts';
 import { bind } from './injector';
-
-// @TODO consider for split into a separate package
 
 export class LoggerModule {
   register(): Definition[] {
@@ -9,55 +21,64 @@ export class LoggerModule {
       bind(LogLevel).factory(() => process.env.LOG_LEVEL || 'info'),
       bind(Logger)
         .use(LogLevel)
-        .factory((limit) => makeLogger(limit as string)),
+        .factory((limit) => makeLogger(limit as LogLevelOption)),
+      bind(Log)
+        .use(Logger)
+        .factory(
+          (logger): Log => (
+            level: string,
+            message: string | Record<string, unknown>,
+            context?: Record<string, unknown>,
+          ) => {
+            if (level in logger) {
+              logger[level as keyof Logger](message as string, context as Record<string, unknown>);
+            }
+          },
+        ),
       bind(LogError)
         .use(Logger)
-        .factory((logger) => (object) => logger('error', object)),
+        .factory((logger) => logger.error.bind(logger)),
       bind(LogWarn)
         .use(Logger)
-        .factory((logger) => (object) => logger('warn', object)),
+        .factory((logger) => logger.warn.bind(logger)),
       bind(LogInfo)
         .use(Logger)
-        .factory((logger) => (object) => logger('info', object)),
+        .factory((logger) => logger.info.bind(logger)),
       bind(LogDebug)
         .use(Logger)
-        .factory((logger) => (object) => logger('debug', object)),
+        .factory((logger) => logger.debug.bind(logger)),
       bind(LogTrace)
         .use(Logger)
-        .factory((logger) => (object) => logger('trace', object)),
+        .factory((logger) => logger.trace.bind(logger)),
     ];
   }
 }
 
-export abstract class LogLevel extends String {}
-
-export interface Logger {
-  (level: string, object: { constructor: { name: string } }): void;
-}
-export abstract class Logger {}
-
-export interface LogFunction {
-  (object: { constructor: { name: string } }): void;
-}
-export abstract class LogFunction {}
-export abstract class LogError extends LogFunction {}
-export abstract class LogWarn extends LogFunction {}
-export abstract class LogInfo extends LogFunction {}
-export abstract class LogDebug extends LogFunction {}
-export abstract class LogTrace extends LogFunction {}
-
-function makeLogger(logLimit: string) {
-  return (level: string, object: { constructor: { name: string } }) => {
+function makeLogger(logLimit: LogLevelOption, presenter?: LogPresenter): Logger {
+  const logger = presenter || (process.env.NODE_ENV === 'development' ? consoleLogger : jsonLogger);
+  const log = (level: LogLevelOption): LogFunction => (
+    message: string | Record<string, unknown>,
+    context?: Record<string, unknown>,
+  ) => {
     if (!shouldLog(logLimit, level)) {
       return;
     }
-    const logger = process.env.NODE_ENV === 'development' ? consoleLogger : jsonLogger;
-    logger(level, object);
+    const subject = (typeof message === 'string'
+      ? { level, message, context }
+      : { level, context: message }) as LogSubject;
+    logger(subject);
+  };
+  return {
+    error: log('error'),
+    warn: log('warn'),
+    info: log('info'),
+    debug: log('debug'),
+    trace: log('trace'),
   };
 }
 
-function shouldLog(logLimit: string, logLevel: string) {
-  const levels = ['error', 'warn', 'info', 'debug', 'trace'];
+function shouldLog(logLimit: LogLevelOption, logLevel: LogLevelOption) {
+  const levels: LogLevelOption[] = ['error', 'warn', 'info', 'debug', 'trace'];
   const limitIndex = levels.indexOf(logLimit);
   const levelIndex = levels.indexOf(logLevel);
   if (limitIndex === -1 || levelIndex === -1) {
@@ -66,16 +87,33 @@ function shouldLog(logLimit: string, logLevel: string) {
   return levelIndex <= limitIndex;
 }
 
-function jsonLogger(level: string, object: { constructor: { name: string } }) {
-  const line = JSON.stringify({
-    type: object.constructor.name,
+function jsonLogger({ level, message, context }: LogSubject) {
+  const body: Record<string, unknown> = {
     level,
     time: Date.now(),
-    ...object,
-  });
+  };
+  if (message) {
+    body.message = message;
+  } else if (context && context instanceof Array) {
+    body.values = context;
+  } else if (context && typeof context === 'object' && context !== null) {
+    if (context.constructor !== Object) {
+      body.type = context.constructor.name;
+    }
+    Object.assign(body, context);
+  } else if (context !== undefined) {
+    body.value = context;
+  }
+  const line = JSON.stringify(body);
   process.stderr.write(`${line}\n`);
 }
 
-function consoleLogger(level: string, object: { constructor: { name: string } }) {
-  console.log(`[${level}]`, object);
+function consoleLogger({ level, message, context }: LogSubject) {
+  const now = new Date();
+  const pad = (num: number, length = 2) => String(num).padStart(length, '0');
+  const time =
+    [pad(now.getHours()), pad(now.getMinutes()), pad(now.getSeconds())].join(':') +
+    '.' +
+    pad(now.getMilliseconds(), 3);
+  console.log(`[${level}|${time}]`, ...[message, context].filter((a) => !!a));
 }

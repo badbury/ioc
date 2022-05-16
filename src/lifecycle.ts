@@ -1,4 +1,4 @@
-import { Definition, DynamicEventSink } from './contracts';
+import { Definition, EmitEvent } from './contracts';
 import { bind } from './injector';
 import { on, ListnerFunctions } from './events';
 import { ClassLike } from './type-utils';
@@ -6,7 +6,7 @@ import { ClassLike } from './type-utils';
 export class LifecycleModule {
   register(): Definition[] {
     return [
-      bind(LifecycleDispatcher).with(DynamicEventSink),
+      bind(LifecycleDispatcher).with(EmitEvent),
       on(Startup).dispatchWith(LifecycleDispatcher, 'startupDispatcher'),
       on(Shutdown).dispatchWith(LifecycleDispatcher, 'shutdownDispatcher'),
     ];
@@ -38,7 +38,7 @@ export class Exit {
 }
 
 class LifecycleDispatcher {
-  constructor(private emit: DynamicEventSink) {}
+  constructor(private emit: EmitEvent) {}
 
   async startupDispatcher(
     startup: Startup,

@@ -1,7 +1,7 @@
 import { bind, DependencyResolver } from './injector';
 import { EventBus } from './events';
 import { LifecycleModule, Shutdown, Startup } from './lifecycle';
-import { Definition, ServiceLocator, ResolverSink, EventSink, DynamicEventSink } from './contracts';
+import { Definition, ServiceLocator, ResolverSink, EventSink, EmitEvent } from './contracts';
 
 export interface Module {
   register(): Definition[];
@@ -17,15 +17,19 @@ export class Container implements EventSink, ServiceLocator {
 
   constructor(modules: Module[]) {
     modules.unshift(new LifecycleModule());
-    const defintions = modules.map((module) => module.register()).reduce((a, b) => a.concat(b), []);
-    this.events = new EventBus(this, defintions);
-    defintions.push(bind(EventSink).value(this.events));
-    defintions.push(bind(DynamicEventSink).value(this.events));
-    defintions.push(bind(Container).value(this));
-    defintions.push(bind(ServiceLocator).value(this));
-    this.resolver = new DependencyResolver(defintions);
-    this.resolver.register(bind(ResolverSink).value(this.resolver));
-    this.events.emit(new RegisterDefinitions(defintions, this));
+    const definitions = modules
+      .map((module) => module.register())
+      .reduce((a, b) => a.concat(b), []);
+    this.events = new EventBus(this, definitions);
+    definitions.push(bind(EventSink).value(this.events));
+    definitions.push(bind(EmitEvent).value(this.events.emit.bind(this.events)));
+    definitions.push(bind(Container).value(this));
+    definitions.push(bind(ServiceLocator).value(this));
+    this.resolver = new DependencyResolver(definitions);
+    const resolverDefinitions = bind(ResolverSink).value(this.resolver);
+    this.resolver.register(resolverDefinitions);
+    definitions.push(resolverDefinitions);
+    this.events.emit(new RegisterDefinitions(definitions, this));
   }
 
   get<T extends { prototype: unknown }>(type: T): T['prototype'] {

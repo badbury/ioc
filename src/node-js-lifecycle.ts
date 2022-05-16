@@ -1,4 +1,4 @@
-import { Definition, DynamicEventSink } from './contracts';
+import { Definition, EmitEvent } from './contracts';
 import { bind } from './injector';
 import { on, ListnerFunctions } from './events';
 import { Startup, Shutdown, Exit } from './lifecycle';
@@ -8,7 +8,7 @@ import { Startup, Shutdown, Exit } from './lifecycle';
 export class NodeJSLifecycleModule {
   register(): Definition[] {
     return [
-      bind(NodeJsHandlers).with(DynamicEventSink),
+      bind(NodeJsHandlers).with(EmitEvent),
       on(Exit).dispatchWith(NodeJsHandlers, 'exit'),
       on(Startup).do(NodeJsHandlers, 'bind'),
       on(Shutdown).do(NodeJsHandlers, 'unbind'),
@@ -17,7 +17,7 @@ export class NodeJSLifecycleModule {
 }
 
 class NodeJsHandlers {
-  constructor(private emit: DynamicEventSink) {}
+  constructor(private emit: EmitEvent) {}
 
   async exit(exit: Exit, listeners: ListnerFunctions<typeof Exit>): Promise<void> {
     await Promise.all(listeners.map(async (listener) => listener(exit)));

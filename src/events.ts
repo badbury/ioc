@@ -6,7 +6,6 @@ import {
   EventListener,
   EventStream,
   EventSink,
-  DynamicEventSink,
 } from './contracts';
 import { AbstractClass, ClassLike, Newable } from './type-utils';
 
@@ -46,7 +45,7 @@ const defaultDispatcher: EventDispatcher = {
 };
 
 /* eslint-disable @typescript-eslint/no-empty-interface */
-export interface EventBus extends DynamicEventSink {}
+export interface EventBus extends EventSink {}
 
 export class EventBus extends CallableClass {
   private listeners: Map<unknown, AnyListener[]> = new Map();
