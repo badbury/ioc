@@ -77,13 +77,13 @@ export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
 
   protected getMethodModifierMiddleware<N extends keyof K, M extends HasMethod<K, N>>(
     method: M,
-  ): MethodModifierMiddleware<K, N, M> {
+  ): MethodModifierMiddleware<K & Record<string, unknown>, N, M> {
     for (const x of this.middlewares) {
       if (x instanceof MethodModifierMiddleware && x.key === method) {
         return x;
       }
     }
-    const middleware = new MethodModifierMiddleware<K, N, M>(method);
+    const middleware = new MethodModifierMiddleware<K & Record<string, unknown>, N, M>(method);
     this.middlewares.push(middleware);
     return middleware;
   }
