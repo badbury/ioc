@@ -114,13 +114,13 @@ class CallableSetterBuilder<
 export const callableSetter = (): CallableSetterBuilder<[], []> => new CallableSetterBuilder();
 export const callable = callableSetter().get();
 
-type CallableFunction<
+export type CallableFunction<
   TPassedArgs extends unknown[],
   TContainerArgs extends AbstractClass[],
   TReturn = unknown
 > = (...args: [...TPassedArgs, ...AllInstanceType<TContainerArgs>]) => TReturn;
 
-type CallableMethod<
+export type CallableMethod<
   TClassType extends Newable,
   TPassedArgs extends unknown[],
   TContainerArgs extends AbstractClass[],
@@ -180,7 +180,12 @@ export abstract class Callable<
         }),
     );
 
-  intercept: CallableSetter<[...P, (...args: P) => R], [], R, Callable<P, C, R>> = callableSetter()
+  interceptOld: CallableSetter<
+    [...P, (...args: P) => R],
+    [],
+    R,
+    Callable<P, C, R>
+  > = callableSetter()
     .withPassedArgs<[...P, (...args: P) => R]>()
     .withReturn<R>()
     .map(
@@ -188,6 +193,25 @@ export abstract class Callable<
         new DynamicCallable((passedArgs: P, container: ServiceLocator, sink?: EventSink) => {
           const interceptorCallback = (...args: P) => this.call(args, container, sink);
           return callable.call([...passedArgs, interceptorCallback], container, sink);
+        }),
+    );
+
+  intercept: CallableSetter<
+    [{ args: P; next: (...args: P) => R }],
+    [],
+    R,
+    Callable<P, C, R>
+  > = callableSetter()
+    .withPassedArgs<[{ args: P; next: (...args: P) => R }]>()
+    .withReturn<R>()
+    .map(
+      (callable) =>
+        new DynamicCallable((passedArgs: P, container: ServiceLocator, sink?: EventSink) => {
+          const context = {
+            args: passedArgs,
+            next: (...args: P) => this.call(args, container, sink),
+          };
+          return callable.call([context], container, sink);
         }),
     );
 
