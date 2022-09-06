@@ -14,7 +14,7 @@ type ModifyCallable<T extends (...args: unknown[]) => unknown> = (
 ) => CallableFromFn<T>;
 
 export class MethodModifierMiddleware<
-  T extends Record<string, any>,
+  T extends Record<string, unknown> & Record<M, () => unknown>,
   N extends keyof T,
   M extends HasMethod<T, N>
 > implements ResolverMiddleware<T> {
