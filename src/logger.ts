@@ -94,7 +94,8 @@ function jsonLogger({ level, message, context }: LogSubject) {
   };
   if (message) {
     body.message = message;
-  } else if (context && context instanceof Array) {
+  }
+  if (context && context instanceof Array) {
     body.values = context;
   } else if (context && typeof context === 'object' && context !== null) {
     if (context.constructor !== Object) {
