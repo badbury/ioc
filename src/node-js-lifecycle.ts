@@ -44,10 +44,10 @@ class NodeJsHandlers {
     process.removeListener('unhandledRejection', this.handleUnhandledRejection);
   }
 
-  handleSigHup = () => this.emit(new Shutdown('SIGHUP', 128 + 1));
-  handleSigInt = () => this.emit(new Shutdown('SIGINT', 128 + 2));
-  handleSigTerm = () => this.emit(new Shutdown('SIGTERM', 128 + 15));
-  handleBeforeExit = () => this.emit(new Shutdown('Program ran to completion', 0));
+  handleSigHup = () => this.emit(new Shutdown('POSIX Signal SIGHUP', 128 + 1));
+  handleSigInt = () => this.emit(new Shutdown('POSIX Signal SIGINT', 128 + 2));
+  handleSigTerm = () => this.emit(new Shutdown('POSIX Signal SIGTERM', 128 + 15));
+  handleBeforeExit = () => this.emit(new Shutdown('Program successfully ran to completion', 0));
   handleUncaughtException = (err: Error) => this.emit(new Shutdown('Uncaught exception', 1, err));
   handleUnhandledRejection = (err: Error) => this.emit(new Shutdown('Unhandled rejection', 1, err));
 }

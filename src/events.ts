@@ -9,23 +9,6 @@ import {
 } from './contracts';
 import { AbstractClass, ClassLike, Newable } from './type-utils';
 
-function CallableInstance(this: typeof CallableInstance, property: string) {
-  const func = this.constructor.prototype[property];
-  const apply = function (...args: unknown[]) {
-    return func.apply(apply, args);
-  };
-  Object.setPrototypeOf(apply, this.constructor.prototype);
-  Object.getOwnPropertyNames(func).forEach(function (p) {
-    const propertyDescriptor = Object.getOwnPropertyDescriptor(func, p);
-    if (propertyDescriptor) {
-      Object.defineProperty(apply, p, propertyDescriptor);
-    }
-  });
-  return apply;
-}
-CallableInstance.prototype = Object.create(Function.prototype);
-const CallableClass = (CallableInstance as unknown) as Newable;
-
 type EventDispatcher = Pick<AnyDispatcher, 'dispatch'>;
 
 type AnyDispatcher = Dispatcher<
@@ -47,12 +30,11 @@ const defaultDispatcher: EventDispatcher = {
 /* eslint-disable @typescript-eslint/no-empty-interface */
 export interface EventBus extends EventSink {}
 
-export class EventBus extends CallableClass {
+export class EventBus {
   private listeners: Map<unknown, AnyListener[]> = new Map();
   private dispatchers: Map<unknown, AnyDispatcher> = new Map();
 
   constructor(private container: ServiceLocator, definitions: unknown[]) {
-    super('emit');
     for (const definition of definitions) {
       if (definition instanceof Listener) {
         const handlers = this.listeners.get(definition.key) || [];
@@ -63,19 +45,6 @@ export class EventBus extends CallableClass {
         this.dispatchers.set(definition.key, definition);
       }
     }
-    const handler = {
-      get(target: EventBus, key: string) {
-        const upstream = target[key];
-        if (typeof upstream !== 'undefined') {
-          return upstream;
-        }
-        return target.emit.bind(target);
-      },
-      apply(target: EventBus, _: unknown, args: unknown[]) {
-        return target.emit(args[0]);
-      },
-    };
-    return new Proxy(this, handler);
   }
 
   emit<T>(subject: T): unknown {
