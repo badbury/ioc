@@ -6,6 +6,7 @@ import {
   ServiceLocator,
   EventStream,
   EventSink,
+  Definitions,
 } from './contracts';
 import {
   MethodAfter,
@@ -92,24 +93,47 @@ export abstract class Resolver<T, K = T> implements Definition<Resolver<T, K>> {
 export class DependencyResolver implements ServiceLocator, ResolverSink {
   private mappings: Map<unknown, Resolver<unknown>> = new Map();
 
-  constructor(definitions: Definition[]) {
-    for (const definition of definitions) {
-      if (definition instanceof Resolver) {
-        this.register(definition);
+  constructor(
+    definitions: Definitions,
+    private parent: ServiceLocator | null = null,
+    private children: ServiceLocator[] = [],
+  ) {
+    for (const definition of definitions.only(Resolver)) {
+      this.addBinding(definition);
+    }
+  }
+
+  get<T extends { prototype: unknown }>(type: T, useParent = true): T['prototype'] {
+    if (useParent && this.parent && this.parent.has(type)) {
+      return this.parent.get(type);
+    }
+    const resolver = this.mappings.get(type);
+    if (resolver) {
+      return resolver.resolveWithMiddleware(this);
+    }
+    for (const child of this.children) {
+      if (child.provides().includes(type)) {
+        return child.get(type);
       }
     }
+    throw new CouldNotResolve(type);
   }
 
-  get<T extends { prototype: unknown }>(type: T): T['prototype'] {
-    const resolver = this.mappings.get(type);
-    if (!resolver) {
-      throw new CouldNotResolve(type);
-    }
-    return resolver.resolveWithMiddleware(this);
+  has<T extends { prototype: unknown }>(type: T): boolean {
+    return (
+      this.mappings.has(type) ||
+      (this.parent && this.parent.has(type)) ||
+      this.children.some((child) => child.has(type))
+    );
   }
 
-  register(resolver: Resolver<unknown>): void {
+  addBinding(resolver: Resolver<unknown>): void {
     this.mappings.set(resolver.key, resolver);
+  }
+
+  provides(): unknown[] {
+    const childProvides = this.children.map((child) => child.provides());
+    return [...this.mappings.keys(), ...childProvides.reduce((x, y) => x.concat(y), [])];
   }
 }
 

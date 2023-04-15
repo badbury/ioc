@@ -2,10 +2,11 @@ import { Definition, EmitEvent } from './contracts';
 import { bind } from './injector';
 import { on, ListnerFunctions } from './events';
 import { Startup, Shutdown, Exit } from './lifecycle';
+import { Module } from './container';
 
 // @TODO consider for split into a separate package
 
-export class NodeJSLifecycleModule {
+export class NodeJSLifecycleModule extends Module {
   register(): Definition[] {
     return [
       bind(NodeJsHandlers).with(EmitEvent),

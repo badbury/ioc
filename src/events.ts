@@ -6,6 +6,7 @@ import {
   EventListener,
   EventStream,
   EventSink,
+  Definitions,
 } from './contracts';
 import { AbstractClass, ClassLike, Newable } from './type-utils';
 
@@ -34,16 +35,14 @@ export class EventBus {
   private listeners: Map<unknown, AnyListener[]> = new Map();
   private dispatchers: Map<unknown, AnyDispatcher> = new Map();
 
-  constructor(private container: ServiceLocator, definitions: unknown[]) {
-    for (const definition of definitions) {
-      if (definition instanceof Listener) {
-        const handlers = this.listeners.get(definition.key) || [];
-        handlers.push(definition);
-        this.listeners.set(definition.key, handlers);
-      }
-      if (definition instanceof Dispatcher) {
-        this.dispatchers.set(definition.key, definition);
-      }
+  constructor(private container: ServiceLocator, definitions: Definitions) {
+    for (const listener of definitions.only(Listener)) {
+      const handlers = this.listeners.get(listener.key) || [];
+      handlers.push(listener);
+      this.listeners.set(listener.key, handlers);
+    }
+    for (const dispatcher of definitions.only(Dispatcher)) {
+      this.dispatchers.set(dispatcher.key, dispatcher);
     }
   }
 

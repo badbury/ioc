@@ -3,10 +3,27 @@ export type Definition<T = unknown> = {
   constructor: { prototype: T };
 };
 
+export class Definitions {
+  constructor(public readonly array: Definition[]) {}
+  add(...definitions: Definition[]): void {
+    this.array.unshift(...definitions);
+  }
+  all(): Definition[] {
+    return [...this.array];
+  }
+  only<T extends { prototype: unknown }>(...types: T[]): T['prototype'][] {
+    return this.array.filter((definition) =>
+      types.some((type) => definition.definition === type),
+    ) as T['prototype'][];
+  }
+}
+
 // Injector
 
 export abstract class ServiceLocator {
-  abstract get<T extends { prototype: unknown }>(type: T): T['prototype'];
+  abstract get<T extends { prototype: unknown }>(type: T, useParent?: boolean): T['prototype'];
+  abstract has<T extends { prototype: unknown }>(type: T): boolean;
+  abstract provides(): unknown[];
 }
 
 export abstract class ResolverMiddleware<T> {
@@ -18,7 +35,7 @@ export interface Resolveable<T> {
 }
 
 export abstract class ResolverSink {
-  abstract register(resolver: Resolveable<unknown>): void;
+  abstract addBinding(resolver: Resolveable<unknown>): void;
 }
 
 // Events
