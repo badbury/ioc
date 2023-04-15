@@ -52,3 +52,11 @@ export class Container implements EventSink, ServiceLocator {
     return this.events.emit(new Shutdown(reason, exitCode, error));
   }
 }
+
+export function container(...modules: Module[]): Container {
+  return new Container(modules);
+}
+
+export function bundle(...definitions: Definition[]): Module {
+  return { register: () => definitions };
+}
